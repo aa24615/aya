@@ -177,5 +177,16 @@
   "source": "Source",
   "destination": "Destination",
   "duration": "Duration",
-  "preview": "Preview"
+  "preview": "Preview",
+  "edit": "Edit",
+  "editDevice": "Edit Device",
+  "deviceName": "Device Name",
+  "remark": "Remark",
+  "importCsv": "Import CSV",
+  "exportCsv": "Export CSV",
+  "devicesImported": "Imported {{count}} devices",
+  "devicesExported": "Devices exported to {{path}}",
+  "csvIdHeaderRequired": "The CSV file must contain an ID column",
+  "csvImportErr": "Failed to import the CSV file",
+  "csvExportErr": "Failed to export the CSV file"
 }

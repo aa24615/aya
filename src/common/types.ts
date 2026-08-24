@@ -1,10 +1,27 @@
 export interface IDevice {
   id: string
   name: string
+  deviceName?: string
+  remark?: string
   serialno: string
   androidVersion: string
   sdkVersion: string
   type: 'emulator' | 'device' | 'offline' | 'unauthorized' | 'unknown'
+}
+
+export interface IDeviceMetadata {
+  deviceName: string
+  remark: string
+}
+
+export interface IDeviceCsvRow {
+  id: string
+  serialno?: string
+  model?: string
+  deviceName?: string
+  remark?: string
+  androidVersion?: string
+  sdkVersion?: string
 }
 
 export interface IAvd {
@@ -70,6 +87,8 @@ export enum TransferType {
 
 export type IpcGetFps = (deviceId: string, pkg: string) => Promise<number>
 export type IpcGetDevices = () => Promise<IDevice[]>
+export type IpcImportDevicesCsv = () => Promise<string | null>
+export type IpcExportDevicesCsv = (content: string) => Promise<string | null>
 export type IpcSetScreencastAlwaysOnTop = (alwaysOnTop: boolean) => void
 export type IpcListForwards = (
   deviceId: string

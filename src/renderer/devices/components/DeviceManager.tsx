@@ -18,11 +18,16 @@ export default observer(function DeviceManager() {
   })
 
   const devices = map(concat(store.devices, store.remoteDevices), (device) => {
+    const metadata = store.getDeviceMetadata(device)
     return {
       id: device.id,
-      name: device.name,
+      model: device.name,
+      deviceName: metadata.deviceName,
+      remark: metadata.remark,
       serialno: device.serialno,
-      androidVersion: `Android ${device.androidVersion} (API ${device.sdkVersion})`,
+      androidVersion: device.androidVersion
+        ? `Android ${device.androidVersion}${device.sdkVersion ? ` (API ${device.sdkVersion})` : ''}`
+        : '',
       status: device.type === 'offline' ? t('offline') : t('online'),
       type: device.type,
     }
@@ -67,21 +72,33 @@ const columns = [
     weight: 15,
   },
   {
-    id: 'name',
-    title: t('name'),
+    id: 'model',
+    title: t('model'),
     sortable: true,
-    weight: 30,
+    weight: 18,
+  },
+  {
+    id: 'deviceName',
+    title: t('deviceName'),
+    sortable: true,
+    weight: 15,
+  },
+  {
+    id: 'remark',
+    title: t('remark'),
+    sortable: true,
+    weight: 20,
   },
   {
     id: 'androidVersion',
     title: t('androidVersion'),
     sortable: true,
-    weight: 30,
+    weight: 18,
   },
   {
     id: 'status',
     title: t('status'),
     sortable: true,
-    weight: 10,
+    weight: 8,
   },
 ]

@@ -212,5 +212,15 @@
   "adbServerRestarted": "ADB 服務已重啟",
   "pair": "配對",
   "pairDevice": "通過 Wi-Fi 配對新設備",
-  "pairingCode": "配對碼"
+  "pairingCode": "配對碼",
+  "editDevice": "修改設備資訊",
+  "deviceName": "設備名稱",
+  "remark": "備註",
+  "importCsv": "匯入 CSV",
+  "exportCsv": "匯出 CSV",
+  "devicesImported": "已匯入 {{count}} 台設備",
+  "devicesExported": "設備清單已匯出至 {{path}}",
+  "csvIdHeaderRequired": "CSV 檔案必須包含 ID 欄",
+  "csvImportErr": "CSV 檔案匯入失敗",
+  "csvExportErr": "CSV 檔案匯出失敗"
 }

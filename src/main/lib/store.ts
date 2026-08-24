@@ -16,6 +16,7 @@ export const getScreencastStore = memoize(function () {
 export const getDevicesStore = memoize(function () {
   return new FileStore(getUserDataPath('data/devices.json'), {
     remoteDevices: [],
+    deviceMetadata: {},
   })
 })
 

@@ -177,5 +177,16 @@
   "source": "源",
   "destination": "目标",
   "duration": "时长",
-  "preview": "预览"
+  "preview": "预览",
+  "edit": "修改",
+  "editDevice": "修改设备信息",
+  "deviceName": "设备名称",
+  "remark": "备注",
+  "importCsv": "导入 CSV",
+  "exportCsv": "导出 CSV",
+  "devicesImported": "已导入 {{count}} 台设备",
+  "devicesExported": "设备列表已导出至 {{path}}",
+  "csvIdHeaderRequired": "CSV 文件必须包含 ID 列",
+  "csvImportErr": "CSV 文件导入失败",
+  "csvExportErr": "CSV 文件导出失败"
 }

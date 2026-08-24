@@ -15,6 +15,8 @@ import {
   IpcGetDevices,
   IpcGetFileUrl,
   IpcGetFps,
+  IpcImportDevicesCsv,
+  IpcExportDevicesCsv,
   IpcGetPackageInfos,
   IpcGetPackages,
   IpcGetProcesses,
@@ -55,6 +57,8 @@ import { invoke } from 'share/preload/util'
 
 export default Object.assign(mainObj, {
   getDevices: invoke<IpcGetDevices>('getDevices'),
+  importDevicesCsv: invoke<IpcImportDevicesCsv>('importDevicesCsv'),
+  exportDevicesCsv: invoke<IpcExportDevicesCsv>('exportDevicesCsv'),
   getMainStore: invoke<IpcGetStore>('getMainStore'),
   setMainStore: invoke<IpcSetStore>('setMainStore'),
   getScreencastStore: invoke<IpcGetStore>('getScreencastStore'),

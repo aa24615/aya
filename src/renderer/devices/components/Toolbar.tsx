@@ -16,9 +16,13 @@ import { isRemoteDevice } from '../lib/util'
 import some from 'licia/some'
 import CodePairModal from './CodePairModal'
 import { useState } from 'react'
+import DeviceEditModal from './DeviceEditModal'
+import { parseDevicesCsv, stringifyDevicesCsv } from '../lib/csv'
+import map from 'licia/map'
 
 export default observer(function Toolbar() {
   const [codePairModalVisible, setCodePairModalVisible] = useState(false)
+  const [deviceEditModalVisible, setDeviceEditModalVisible] = useState(false)
   const { device, remoteDevices } = store
 
   const wirelessDisabled =
@@ -114,6 +118,73 @@ export default observer(function Toolbar() {
           }}
         />
         <LunaToolbarSeparator />
+        <LunaToolbarButton
+          state="hover"
+          disabled={!device}
+          onClick={() => setDeviceEditModalVisible(true)}
+        >
+          {t('edit')}
+        </LunaToolbarButton>
+        <LunaToolbarButton
+          state="hover"
+          onClick={async () => {
+            try {
+              const content = await main.importDevicesCsv()
+              if (content === null) {
+                return
+              }
+              const rows = parseDevicesCsv(content)
+              store.importDevices(rows)
+              notify(t('devicesImported', { count: rows.length }), {
+                icon: 'success',
+              })
+            } catch (error) {
+              notify(
+                error instanceof Error &&
+                  error.message === 'CSV_ID_HEADER_REQUIRED'
+                  ? t('csvIdHeaderRequired')
+                  : t('csvImportErr'),
+                { icon: 'error' }
+              )
+            }
+          }}
+        >
+          {t('importCsv')}
+        </LunaToolbarButton>
+        <LunaToolbarButton
+          state="hover"
+          disabled={store.getAllDevices().length === 0}
+          onClick={async () => {
+            try {
+              const devices = map(store.getAllDevices(), (device) => ({
+                ...device,
+                metadata: store.getDeviceMetadata(device),
+                status: device.type === 'offline' ? t('offline') : t('online'),
+              }))
+              const content = stringifyDevicesCsv(devices, [
+                'ID',
+                t('serialno'),
+                t('model'),
+                t('deviceName'),
+                t('remark'),
+                t('androidVersion'),
+                t('sdkVersion'),
+                t('status'),
+              ])
+              const filePath = await main.exportDevicesCsv(content)
+              if (filePath) {
+                notify(t('devicesExported', { path: filePath }), {
+                  icon: 'success',
+                })
+              }
+            } catch {
+              notify(t('csvExportErr'), { icon: 'error' })
+            }
+          }}
+        >
+          {t('exportCsv')}
+        </LunaToolbarButton>
+        <LunaToolbarSeparator />
         <LunaToolbarInput
           keyName="filter"
           value={store.filter}
@@ -132,6 +203,11 @@ export default observer(function Toolbar() {
       <CodePairModal
         visible={codePairModalVisible}
         onClose={() => setCodePairModalVisible(false)}
+      />
+      <DeviceEditModal
+        device={device}
+        visible={deviceEditModalVisible}
+        onClose={() => setDeviceEditModalVisible(false)}
       />
     </>
   )
