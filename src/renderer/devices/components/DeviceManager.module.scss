@@ -7,6 +7,180 @@
   border: none !important;
 }
 
+.card-list {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--color-bg-container-darker);
+}
+
+.device-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+    background: var(--color-bg-text-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.device-card-selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.card-screenshot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  background: var(--color-fill-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.card-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #111;
+}
+
+.card-screenshot-caption {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 7px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 60%);
+}
+
+.card-screenshot-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 12px;
+  text-align: center;
+  border-radius: 5px;
+}
+
+.card-screenshot-overlay {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  color: #fff;
+  background: rgb(0 0 0 / 65%);
+}
+
+.card-screenshot-error {
+  color: var(--color-error);
+
+  &.card-screenshot-overlay {
+    color: #fff;
+    background: color-mix(in srgb, var(--color-error) 78%, transparent);
+  }
+}
+
+.card-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: card-spinner 0.8s linear infinite;
+}
+
+.card-body {
+  padding: 10px 12px 12px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  .status-tag {
+    margin-left: 8px;
+  }
+}
+
+.card-device-name,
+.card-detail,
+.card-device-id,
+.card-remark {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-device-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.card-detail,
+.card-device-id,
+.card-remark {
+  margin-top: 5px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.card-device-id {
+  font-family: monospace;
+}
+
+.card-remark::before {
+  margin-right: 4px;
+  content: '•';
+}
+
+.card-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-secondary);
+}
+
+.card-empty-icon {
+  margin-bottom: 10px;
+  font-size: 30px;
+}
+
 .status-tag {
   display: inline-flex;
   align-items: center;
@@ -40,4 +214,10 @@
   color: var(--color-text-secondary);
   border-color: var(--color-border);
   background: var(--color-fill-secondary);
+}
+
+@keyframes card-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }

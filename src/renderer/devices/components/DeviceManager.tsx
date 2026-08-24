@@ -9,13 +9,16 @@ import { useRef } from 'react'
 import DataGrid from 'luna-data-grid'
 import { useResizeSensor } from 'share/renderer/lib/hooks'
 import { isDeviceOnline } from 'common/device'
+import DeviceCards from './DeviceCards'
 
 export default observer(function DeviceManager() {
   const containerRef = useRef<HTMLDivElement>(null)
   const dataGridRef = useRef<DataGrid>(null)
 
   useResizeSensor(containerRef, () => {
-    dataGridRef.current?.fit()
+    if (store.viewMode !== 'card') {
+      dataGridRef.current?.fit()
+    }
   })
 
   const devices = map(concat(store.devices, store.remoteDevices), (device) => {
@@ -36,28 +39,32 @@ export default observer(function DeviceManager() {
 
   return (
     <div ref={containerRef} className={Style.container}>
-      <LunaDataGrid
-        className={Style.devices}
-        onSelect={(node) => store.selectDevice(node.data.id as string)}
-        onDeselect={() => store.selectDevice(null)}
-        columns={columns}
-        data={devices}
-        selectable={true}
-        filter={store.filter}
-        onDoubleClick={(e, node) => {
-          if (
-            node.data.type === 'device' ||
-            node.data.type === 'emulator'
-          ) {
-            main.sendToWindow('main', 'selectDevice', node.data.id)
-          }
-        }}
-        uniqueId="id"
-        onCreate={(dataGrid) => {
-          dataGridRef.current = dataGrid
-          dataGrid.fit()
-        }}
-      />
+      {store.viewMode === 'card' ? (
+        <DeviceCards />
+      ) : (
+        <LunaDataGrid
+          className={Style.devices}
+          onSelect={(node) => store.selectDevice(node.data.id as string)}
+          onDeselect={() => store.selectDevice(null)}
+          columns={columns}
+          data={devices}
+          selectable={true}
+          filter={store.filter}
+          onDoubleClick={(e, node) => {
+            if (
+              node.data.type === 'device' ||
+              node.data.type === 'emulator'
+            ) {
+              main.sendToWindow('main', 'selectDevice', node.data.id)
+            }
+          }}
+          uniqueId="id"
+          onCreate={(dataGrid) => {
+            dataGridRef.current = dataGrid
+            dataGrid.fit()
+          }}
+        />
+      )}
     </div>
   )
 })

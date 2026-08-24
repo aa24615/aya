@@ -10,6 +10,28 @@ import dataUrl from 'licia/dataUrl'
 import isStr from 'licia/isStr'
 import find from 'licia/find'
 import { getDeviceMetadataKey, isDeviceOnline } from 'common/device'
+import { ConcurrencyQueue, mapWithConcurrency } from './lib/concurrency'
+import { createScreenshotThumbnail } from './lib/screenshot'
+
+export type DeviceViewMode = 'table' | 'card'
+export type DeviceScreenshotStatus = 'loading' | 'success' | 'error'
+
+export interface IDeviceScreenshot {
+  image?: string
+  status: DeviceScreenshotStatus
+  updatedAt: number
+}
+
+interface IScreenshotResult {
+  status: 'success' | 'failed' | 'skipped'
+}
+
+export interface IScreenshotBatchResult {
+  total: number
+  success: number
+  failed: number
+  skipped: number
+}
 
 class Store extends BaseStore {
   filter = ''
@@ -19,9 +41,15 @@ class Store extends BaseStore {
   remoteDevices: IDevice[] = []
   deviceMetadata: Record<string, IDeviceMetadata> = {}
   screenshotWeight = 40
+  viewMode: DeviceViewMode = 'card'
   device: IDevice | null = null
   screenshot: string | null = null
-  private screenshotRequest = 0
+  screenshots: Record<string, IDeviceScreenshot> = {}
+  screenshotsRefreshing = false
+  private screenshotTasks = new Map<string, Promise<IScreenshotResult>>()
+  private screenshotRequestVersions = new Map<string, number>()
+  private screenshotQueue = new ConcurrencyQueue(3)
+  private screenshotBatch: Promise<IScreenshotBatchResult> | null = null
   constructor() {
     super()
     makeObservable(this, {
@@ -33,7 +61,10 @@ class Store extends BaseStore {
       deviceMetadata: observable,
       filter: observable,
       screenshotWeight: observable,
+      viewMode: observable,
       screenshot: observable,
+      screenshots: observable,
+      screenshotsRefreshing: observable,
       setIp: action,
       setPort: action,
       setFilter: action,
@@ -43,6 +74,7 @@ class Store extends BaseStore {
       setDeviceMetadata: action,
       importDevices: action,
       setScreenshotWeight: action,
+      setViewMode: action,
     })
 
     this.init()
@@ -54,6 +86,7 @@ class Store extends BaseStore {
       await main.getDevicesStore('screenshotWeight')
     const deviceMetadata: Record<string, IDeviceMetadata> =
       await main.getDevicesStore('deviceMetadata')
+    const viewMode: DeviceViewMode = await main.getDevicesStore('viewMode')
     runInAction(() => {
       if (remoteDevices) {
         this.remoteDevices = remoteDevices
@@ -63,6 +96,9 @@ class Store extends BaseStore {
       }
       if (deviceMetadata) {
         this.deviceMetadata = deviceMetadata
+      }
+      if (viewMode === 'table' || viewMode === 'card') {
+        this.viewMode = viewMode
       }
     })
 
@@ -78,6 +114,14 @@ class Store extends BaseStore {
   setFilter(filter: string) {
     this.filter = filter
   }
+  setViewMode(viewMode: DeviceViewMode) {
+    if (this.viewMode === viewMode) {
+      return
+    }
+    this.selectDevice(null)
+    this.viewMode = viewMode
+    main.setDevicesStore('viewMode', viewMode)
+  }
   selectDevice(device: IDevice | string | null) {
     if (isStr(device)) {
       const devices: IDevice[] = concat(this.devices, this.remoteDevices)
@@ -89,25 +133,15 @@ class Store extends BaseStore {
       this.port = port
     }
     this.device = device
-
-    const screenshotRequest = ++this.screenshotRequest
-    this.screenshot = null
+    this.screenshot = device ? this.screenshots[device.id]?.image || null : null
     if (device && isDeviceOnline(device)) {
-      main.screencap(device.id).then((data) => {
-        if (
-          screenshotRequest !== this.screenshotRequest ||
-          this.device?.id !== device.id
-        ) {
-          return
-        }
-        const url = dataUrl.stringify(data, 'image/png')
-        runInAction(() => {
-          this.screenshot = url
-        })
-      })
+      void this.refreshDeviceScreenshot(device)
     }
   }
   updateDevices(devices: IDevice[]) {
+    const previousOnline = new Map(
+      this.getAllDevices().map((device) => [device.id, isDeviceOnline(device)])
+    )
     let remoteDevices: IDevice[] = toJS(this.remoteDevices)
     each(remoteDevices, (device) => {
       device.type = 'offline'
@@ -159,13 +193,37 @@ class Store extends BaseStore {
       main.setDevicesStore('deviceMetadata', deviceMetadata)
     }
 
+    each(this.getAllDevices(), (device) => {
+      if (previousOnline.get(device.id) && !isDeviceOnline(device)) {
+        this.invalidateScreenshotRequest(device.id)
+      }
+    })
+
     if (this.device) {
       const id = this.device.id
       const device = find(
         concat(remoteDevices, this.devices),
         (device) => device.id === id
       )
-      this.selectDevice(device || null)
+      if (device) {
+        this.device = device
+      } else {
+        this.selectDevice(null)
+      }
+    }
+
+    const deviceIds = new Set(this.getAllDevices().map((device) => device.id))
+    const screenshots = { ...this.screenshots }
+    let screenshotsChanged = false
+    Object.keys(screenshots).forEach((id) => {
+      if (!deviceIds.has(id)) {
+        delete screenshots[id]
+        this.invalidateScreenshotRequest(id)
+        screenshotsChanged = true
+      }
+    })
+    if (screenshotsChanged) {
+      this.screenshots = screenshots
     }
   }
   removeRemoteDevice(id: string) {
@@ -176,6 +234,12 @@ class Store extends BaseStore {
     if (this.device?.id === id) {
       this.selectDevice(null)
     }
+    if (this.screenshots[id]) {
+      const screenshots = { ...this.screenshots }
+      delete screenshots[id]
+      this.screenshots = screenshots
+    }
+    this.invalidateScreenshotRequest(id)
     main.setDevicesStore('remoteDevices', toJS(this.remoteDevices))
     if (device) {
       const key = getDeviceMetadataKey(device)
@@ -276,6 +340,214 @@ class Store extends BaseStore {
   setScreenshotWeight(weight: number) {
     this.screenshotWeight = weight
     main.setDevicesStore('screenshotWeight', weight)
+  }
+  refreshDeviceScreenshot(
+    device: IDevice | null = this.device
+  ): Promise<IScreenshotResult> {
+    if (!device || !isDeviceOnline(device)) {
+      return Promise.resolve<IScreenshotResult>({ status: 'skipped' })
+    }
+    return this.requestScreenshot(device)
+  }
+  refreshAllScreenshots(): Promise<IScreenshotBatchResult> {
+    if (this.screenshotBatch) {
+      return this.screenshotBatch
+    }
+
+    const devices = unique(
+      filter(this.getAllDevices(), (device) => isDeviceOnline(device)),
+      (a, b) => a.id === b.id
+    )
+    if (devices.length === 0) {
+      return Promise.resolve<IScreenshotBatchResult>({
+        total: 0,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+      })
+    }
+
+    runInAction(() => {
+      this.screenshotsRefreshing = true
+    })
+    const startedAt = Date.now()
+    const batch = mapWithConcurrency(devices, 3, (device) => {
+      const screenshot = this.screenshots[device.id]
+      if (
+        screenshot?.status === 'success' &&
+        screenshot.updatedAt >= startedAt
+      ) {
+        return Promise.resolve<IScreenshotResult>({ status: 'success' })
+      }
+      return this.requestScreenshot(device)
+    })
+      .then((results) => {
+        return {
+          total: results.length,
+          success: results.filter((result) => result.status === 'success')
+            .length,
+          failed: results.filter((result) => result.status === 'failed').length,
+          skipped: results.filter((result) => result.status === 'skipped')
+            .length,
+        }
+      })
+      .finally(() => {
+        runInAction(() => {
+          this.screenshotsRefreshing = false
+        })
+        if (this.screenshotBatch === batch) {
+          this.screenshotBatch = null
+        }
+      })
+    this.screenshotBatch = batch
+    return batch
+  }
+  private requestScreenshot(device: IDevice) {
+    const runningTask = this.screenshotTasks.get(device.id)
+    if (runningTask) {
+      return runningTask
+    }
+
+    const previous = this.screenshots[device.id]
+    runInAction(() => {
+      this.screenshots = {
+        ...this.screenshots,
+        [device.id]: {
+          ...previous,
+          status: 'loading',
+          updatedAt: previous?.updatedAt || 0,
+        },
+      }
+    })
+    const requestVersion =
+      (this.screenshotRequestVersions.get(device.id) || 0) + 1
+    this.screenshotRequestVersions.set(device.id, requestVersion)
+    const task = this.screenshotQueue.run<IScreenshotResult>(async () => {
+      const current = find(
+        this.getAllDevices(),
+        (candidate) => candidate.id === device.id
+      )
+      if (this.screenshotRequestVersions.get(device.id) !== requestVersion) {
+        return { status: 'skipped' }
+      }
+      if (!current || !isDeviceOnline(current)) {
+        runInAction(() => this.restoreScreenshot(device.id, previous))
+        return { status: 'skipped' }
+      }
+      return this.captureScreenshot(device, previous, requestVersion)
+    })
+    this.screenshotTasks.set(device.id, task)
+    const cleanup = () => {
+      if (this.screenshotTasks.get(device.id) === task) {
+        this.screenshotTasks.delete(device.id)
+      }
+    }
+    void task.then(cleanup, cleanup)
+    return task
+  }
+  private async captureScreenshot(
+    device: IDevice,
+    previous: IDeviceScreenshot | undefined,
+    requestVersion: number
+  ): Promise<IScreenshotResult> {
+    try {
+      const data = await main.screencap(device.id)
+      const fullImage = dataUrl.stringify(data, 'image/png')
+      let thumbnail = fullImage
+      try {
+        thumbnail = await createScreenshotThumbnail(fullImage)
+      } catch {
+        // 缩略图转换失败时仍保留原始截图，避免整次截图被判定失败。
+      }
+
+      const current = find(
+        this.getAllDevices(),
+        (candidate) => candidate.id === device.id
+      )
+      if (
+        this.screenshotRequestVersions.get(device.id) !== requestVersion ||
+        !current ||
+        !isDeviceOnline(current)
+      ) {
+        if (this.screenshotRequestVersions.get(device.id) !== requestVersion) {
+          return { status: 'skipped' }
+        }
+        runInAction(() => this.restoreScreenshot(device.id, previous))
+        return { status: 'skipped' }
+      }
+
+      runInAction(() => {
+        this.screenshots = {
+          ...this.screenshots,
+          [device.id]: {
+            image: thumbnail,
+            status: 'success',
+            updatedAt: Date.now(),
+          },
+        }
+        if (this.device?.id === device.id) {
+          this.screenshot = fullImage
+        }
+      })
+      return { status: 'success' }
+    } catch {
+      const current = find(
+        this.getAllDevices(),
+        (candidate) => candidate.id === device.id
+      )
+      if (
+        this.screenshotRequestVersions.get(device.id) !== requestVersion ||
+        !current ||
+        !isDeviceOnline(current)
+      ) {
+        if (this.screenshotRequestVersions.get(device.id) !== requestVersion) {
+          return { status: 'skipped' }
+        }
+        runInAction(() => this.restoreScreenshot(device.id, previous))
+        return { status: 'skipped' }
+      }
+
+      runInAction(() => {
+        this.screenshots = {
+          ...this.screenshots,
+          [device.id]: {
+            ...previous,
+            status: 'error',
+            updatedAt: previous?.updatedAt || 0,
+          },
+        }
+      })
+      return { status: 'failed' }
+    }
+  }
+  private restoreScreenshot(id: string, previous?: IDeviceScreenshot) {
+    const screenshots = { ...this.screenshots }
+    if (previous) {
+      screenshots[id] = previous
+    } else {
+      delete screenshots[id]
+    }
+    this.screenshots = screenshots
+  }
+  private invalidateScreenshotRequest(id: string) {
+    this.screenshotRequestVersions.set(
+      id,
+      (this.screenshotRequestVersions.get(id) || 0) + 1
+    )
+    this.screenshotTasks.delete(id)
+    const screenshot = this.screenshots[id]
+    if (screenshot?.status === 'loading') {
+      const screenshots = { ...this.screenshots }
+      if (screenshot.image) {
+        screenshots[id] = {
+          ...screenshot,
+          status: 'success',
+        }
+      } else {
+        delete screenshots[id]
+      }
+      this.screenshots = screenshots
+    }
   }
   private bindEvent() {
     main.on('changeMemStore', (name, val) => {

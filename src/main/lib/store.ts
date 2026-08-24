@@ -17,6 +17,7 @@ export const getDevicesStore = memoize(function () {
   return new FileStore(getUserDataPath('data/devices.json'), {
     remoteDevices: [],
     deviceMetadata: {},
+    viewMode: 'card',
   })
 })
 

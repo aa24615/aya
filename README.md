@@ -55,6 +55,7 @@ Click [here](https://github.com/liriliri/aya/releases/) to download and install 
 * Interactive shell
 * Custom device name and remark
 * Device list import and export in CSV format
+* Device table/card views with batch screenshot refresh
 
 ## Device Metadata and CSV
 

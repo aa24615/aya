@@ -20,6 +20,7 @@ import DeviceEditModal from './DeviceEditModal'
 import { parseDevicesCsv, stringifyDevicesCsv } from '../lib/csv'
 import map from 'licia/map'
 import { IDeviceCsvRow } from 'common/types'
+import { isDeviceOnline } from 'common/device'
 
 export default observer(function Toolbar() {
   const [codePairModalVisible, setCodePairModalVisible] = useState(false)
@@ -32,6 +33,9 @@ export default observer(function Toolbar() {
     some(remoteDevices, (d) => {
       return d.serialno === device.serialno && d.type !== 'offline'
     })
+  const hasOnlineDevices = some(store.getAllDevices(), (device) =>
+    isDeviceOnline(device)
+  )
 
   return (
     <>
@@ -126,8 +130,9 @@ export default observer(function Toolbar() {
         >
           {t('edit')}
         </LunaToolbarButton>
-        <LunaToolbarButton
-          state="hover"
+        <ToolbarIcon
+          icon="open-file"
+          title={t('importCsv')}
           onClick={async () => {
             try {
               const content = await main.importDevicesCsv()
@@ -153,11 +158,10 @@ export default observer(function Toolbar() {
               notify(getCsvImportErrorMessage(error), { icon: 'error' })
             }
           }}
-        >
-          {t('importCsv')}
-        </LunaToolbarButton>
-        <LunaToolbarButton
-          state="hover"
+        />
+        <ToolbarIcon
+          icon="save"
+          title={t('exportCsv')}
           disabled={store.getAllDevices().length === 0}
           onClick={async () => {
             try {
@@ -186,15 +190,50 @@ export default observer(function Toolbar() {
               notify(t('csvExportErr'), { icon: 'error' })
             }
           }}
-        >
-          {t('exportCsv')}
-        </LunaToolbarButton>
+        />
         <LunaToolbarSeparator />
         <LunaToolbarInput
           keyName="filter"
           value={store.filter}
           placeholder={t('filter')}
           onChange={(val) => store.setFilter(val)}
+        />
+        <LunaToolbarSeparator />
+        <ToolbarIcon
+          icon="grid"
+          title={t('cardView')}
+          state={store.viewMode === 'card' ? 'hover' : ''}
+          onClick={() => store.setViewMode('card')}
+        />
+        <ToolbarIcon
+          icon="list"
+          title={t('listView')}
+          state={store.viewMode === 'table' ? 'hover' : ''}
+          onClick={() => store.setViewMode('table')}
+        />
+        <LunaToolbarSeparator />
+        <ToolbarIcon
+          icon="camera"
+          title={t(
+            store.screenshotsRefreshing
+              ? 'updatingScreenshots'
+              : 'batchUpdateScreenshots'
+          )}
+          disabled={store.screenshotsRefreshing || !hasOnlineDevices}
+          onClick={async () => {
+            try {
+              const result = await store.refreshAllScreenshots()
+              let icon: 'success' | 'warning' | 'error' = 'success'
+              if (result.failed > 0 && result.success === 0) {
+                icon = 'error'
+              } else if (result.failed > 0 || result.skipped > 0) {
+                icon = 'warning'
+              }
+              notify(t('screenshotsRefreshResult', result), { icon })
+            } catch {
+              notify(t('screenshotFailed'), { icon: 'error' })
+            }
+          }}
         />
         <ToolbarIcon
           icon="refresh"
