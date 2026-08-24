@@ -28,7 +28,7 @@ export default observer(function DeviceManager() {
       androidVersion: device.androidVersion
         ? `Android ${device.androidVersion}${device.sdkVersion ? ` (API ${device.sdkVersion})` : ''}`
         : '',
-      status: device.type === 'offline' ? t('offline') : t('online'),
+      status: createStatusTag(device.type !== 'offline'),
       type: device.type,
     }
   })
@@ -102,3 +102,12 @@ const columns = [
     weight: 8,
   },
 ]
+
+function createStatusTag(online: boolean) {
+  const tag = document.createElement('span')
+  tag.className = `${Style.statusTag} ${
+    online ? Style.statusOnline : Style.statusOffline
+  }`
+  tag.textContent = online ? t('online') : t('offline')
+  return tag
+}

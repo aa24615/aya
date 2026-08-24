@@ -6,3 +6,38 @@
 .devices {
   border: none !important;
 }
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 18px;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+
+  &::before {
+    width: 6px;
+    height: 6px;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: currentcolor;
+    content: '';
+  }
+}
+
+.status-online {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.status-offline {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-fill-secondary);
+}
