@@ -5,6 +5,13 @@ import isWindows from 'licia/isWindows.js'
 cd('dist')
 
 const pkg = await fs.readJson('package.json')
+const rootPkg = await fs.readJson('../package.json')
+if (pkg.version !== rootPkg.version) {
+  throw new Error(
+    `Build version ${pkg.version} does not match package version ${rootPkg.version}. Run npm run build before packaging.`,
+  )
+}
+
 const args = process.argv.slice(2)
 const targetLinux = args.includes('--linux')
 const targetWindows = args.includes('--win')
