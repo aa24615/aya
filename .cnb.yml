@@ -19,7 +19,6 @@
               *) echo "ERROR: 版本更新类型只能是 major、minor 或 patch"; exit 1 ;;
             esac
 
-            git submodule update --init --recursive
             git fetch --tags --force origin
 
             PACKAGE_VERSION="$(node -p "require('./package.json').version")"
@@ -64,7 +63,7 @@
         - name: quality-gate
           script: |
             set -e
-            npm install
+            npm ci --legacy-peer-deps
             npx tsc --noEmit
             npm run lint
 

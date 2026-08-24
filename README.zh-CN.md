@@ -143,12 +143,16 @@ ID,序列号,型号,设备名称,备注,Android 版本,SDK 版本
 
 项目主要使用 Electron、React、TypeScript、MobX、Vite 和 Electron Builder，并包含一个用于设备端能力的 Android 服务模块。
 
-首次拉取代码时需要初始化子模块：
+共享代码和图标资源已经内置在仓库中，首次拉取后可直接安装依赖：
 
 ```bash
-git submodule update --init --recursive
 npm install
 ```
+
+内置资源对应以下上游版本。将资源直接纳入主仓库，可避免 CNB 构建节点因无法连接 GitHub 而在源码准备阶段失败：
+
+- `src/share`：[liriliri/electron-share](https://github.com/liriliri/electron-share)，提交 `aab42a842827d4d81f5b4c77eaa6b63ee55fe509`。
+- `src/renderer/icon`：[liriliri/icon-share](https://github.com/liriliri/icon-share)，提交 `b463613b5ad5829131ab73268cfdc8910869a1d5`。
 
 常用命令：
 
