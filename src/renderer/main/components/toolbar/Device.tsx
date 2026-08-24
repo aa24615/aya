@@ -326,13 +326,6 @@ export default observer(function Device() {
                   }}
                 >
                   <div className={Style.deviceHeader}>
-                    <span
-                      className={className(
-                        'icon-phone',
-                        Style.deviceIcon
-                      )}
-                      aria-hidden="true"
-                    />
                     <span className={Style.deviceName}>
                       {displayName}
                     </span>
