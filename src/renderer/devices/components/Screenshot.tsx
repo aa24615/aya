@@ -56,7 +56,12 @@ export default observer(function Screenshot() {
       >
         <span className="icon-refresh" aria-hidden="true" />
       </button>
-      {image && <LunaImageViewer image={image} />}
+      {image && (
+        <LunaImageViewer
+          className={!online ? Style.offlineScreenshot : undefined}
+          image={image}
+        />
+      )}
       {state && (
         <div
           className={`${Style.state} ${image ? Style.overlay : ''} ${

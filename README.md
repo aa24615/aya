@@ -74,6 +74,8 @@ and restores it after the app restarts. Wireless ADB screenshots are named by
 IP, such as `10.0.0.8.png`; a changed port still overwrites the same file. USB
 and emulator devices use a filename-safe encoded device ID. Only one PNG is
 kept for each device, and a failed capture never replaces the previous cache.
+Offline cached thumbnails and full previews are shown in grayscale and return
+to color automatically when the device comes online again.
 
 Opening the screenshot page, selecting a card, or switching devices only reads
 the local cache and does not capture a new image. Use the recapture button in

@@ -130,7 +130,9 @@ export default observer(function DeviceCards() {
               {screenshot?.image ? (
                 <>
                   <img
-                    className={Style.cardThumbnail}
+                    className={className(Style.cardThumbnail, {
+                      [Style.cardThumbnailOffline]: !online,
+                    })}
                     src={screenshot.image}
                     alt=""
                     draggable={false}

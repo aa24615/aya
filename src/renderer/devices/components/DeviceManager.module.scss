@@ -98,6 +98,11 @@
   height: 100%;
   object-fit: contain;
   background: #111;
+  transition: filter 160ms ease;
+}
+
+.card-thumbnail-offline {
+  filter: grayscale(1);
 }
 
 .card-screenshot-caption {
