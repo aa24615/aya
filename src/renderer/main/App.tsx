@@ -14,12 +14,9 @@ import Style from './App.module.scss'
 import { useState, PropsWithChildren, FC } from 'react'
 import store from './store'
 import { observer } from 'mobx-react-lite'
-import { useCheckUpdate } from 'share/renderer/lib/hooks'
 import { t } from 'common/util'
 
 export default observer(function App() {
-  useCheckUpdate('https://aya.liriliri.io')
-
   return (
     <div className={Style.app}>
       <Device />

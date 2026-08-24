@@ -1,21 +1,20 @@
 <div align="center">
-  <a href="https://aya.liriliri.io/" target="_blank">
-    <img src="https://aya.liriliri.io/icon.png" width="400">
+  <a href="https://cnb.cool/scrmoa/other/aya/-/releases" target="_blank">
+    <img src="build/icon.png" width="400">
   </a>
 </div>
 
-<h1 align="center">AYA</h1>
+<h1 align="center">AYA-Plus</h1>
 
 <div align="center">
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Android ADB 桌面管理工具。
+AYA-Plus Android ADB 桌面管理工具。
 
 [![Windows][windows-image]][release-url]
 [![macOS][mac-image]][release-url]
 [![Linux][linux-image]][release-url]
-[![Downloads][download-image]][release-url]
 ![License][license-image]
 
 </div>
@@ -23,17 +22,16 @@ Android ADB 桌面管理工具。
 [windows-image]: https://img.shields.io/badge/-Windows-blue?style=flat-square&logo=windows
 [mac-image]: https://img.shields.io/badge/-macOS-black?style=flat-square&logo=macos
 [linux-image]: https://img.shields.io/badge/-Linux-yellow?style=flat-square&logo=linux
-[download-image]: https://img.shields.io/github/downloads/liriliri/aya/total?style=flat-square
-[release-url]: https://github.com/liriliri/aya/releases
-[license-image]: https://img.shields.io/github/license/liriliri/aya?style=flat-square
+[release-url]: https://cnb.cool/scrmoa/other/aya/-/releases
+[license-image]: https://img.shields.io/github/license/aa24615/aya?style=flat-square
 
 <img src="https://aya.liriliri.io/screencast.png" style="width:100%">
 
-[AYA](https://aya.liriliri.io/) 是一款用于管理和控制 Android 设备的桌面应用，可以理解为 ADB 的图形化操作界面。它保留了命令行 ADB 的设备连接能力，同时提供投屏、文件、应用、进程、性能、日志和终端等可视化工具。
+[AYA-Plus](https://github.com/aa24615/aya) 是基于开源项目 [AYA](https://aya.liriliri.io/) 扩展的 Android 设备桌面管理工具。它保留了命令行 ADB 的设备连接能力，同时提供投屏、文件、应用、进程、性能、日志和终端等可视化工具。
 
 ## 安装
 
-可以从 [AYA 官方 Releases](https://github.com/liriliri/aya/releases/) 下载并安装，支持：
+可以从 [AYA-Plus Releases](https://cnb.cool/scrmoa/other/aya/-/releases) 下载并安装，支持：
 
 - Windows x64
 - macOS arm64
@@ -65,7 +63,7 @@ Android ADB 桌面管理工具。
 
 设备管理器默认使用卡片视图，同时保留原有表格视图，可通过右上角的卡片和列表按钮随时切换。卡片会显示设备名称、型号、ID、Android 版本、备注、在线状态以及最近一次成功获取的截图。
 
-点击右上角的 **批量更新截图** 可更新全部在线设备的卡片截图。AYA 会限制同时截图的设备数量；单台设备截图失败不会中断其他设备，完成后会提示成功、失败和跳过的数量。离线设备不会发起截图请求，并会继续显示本次运行期间缓存的最近截图（如有）。
+点击右上角的 **批量更新截图** 可更新全部在线设备的卡片截图。AYA-Plus 会限制同时截图的设备数量；单台设备截图失败不会中断其他设备，完成后会提示成功、失败和跳过的数量。离线设备不会发起截图请求，并会继续显示本次运行期间缓存的最近截图（如有）。
 
 单击卡片可选择设备并在下方查看大图；双击在线设备可在主界面中切换到该设备。筛选框支持按设备名称、型号、ID、序列号、备注、Android 版本和在线状态查找。
 
@@ -81,7 +79,7 @@ Android ADB 桌面管理工具。
 | 设备名称 | 用户自定义名称，例如“前台签到机”“会议室测试机” |
 | 备注 | 记录安装位置、负责人、用途、故障情况等补充信息 |
 
-设备名称和备注保存在 AYA 本地数据中。设备有序列号时优先按序列号关联，因此同一设备从 USB 切换到无线 ADB 后仍可继续使用原有名称和备注。
+设备名称和备注保存在 AYA-Plus 本地数据中。设备有序列号时优先按序列号关联，因此同一设备从 USB 切换到无线 ADB 后仍可继续使用原有名称和备注。
 
 ### 修改设备名称和备注
 
@@ -120,18 +118,18 @@ Android ADB 桌面管理工具。
 2. 确保每台设备的 IPv4 地址和 ADB 连接端口正确。
 3. 在设备管理器中点击 **导入 CSV**。
 4. 选择 CSV 文件。
-5. AYA 会自动执行 ADB 连接；连接成功后自动读取型号、序列号、Android 版本和 SDK 版本。
+5. AYA-Plus 会自动执行 ADB 连接；连接成功后自动读取型号、序列号、Android 版本和 SDK 版本。
 6. 导入完成后根据提示检查连接成功和失败的设备数量。
 
 导入规则：
 
 - 推荐模板必须包含 `设备名称、IP地址、端口、备注` 四列，列顺序可以调整。
 - `IP地址` 必须是有效的 IPv4 地址；`端口` 必须是 `1-65535` 之间的整数。
-- AYA 会把 IP 和端口组合成内部设备 ID，例如 `192.168.1.10` 和 `5555` 会转换为 `192.168.1.10:5555`。
+- AYA-Plus 会把 IP 和端口组合成内部设备 ID，例如 `192.168.1.10` 和 `5555` 会转换为 `192.168.1.10:5555`。
 - 导入只执行 `adb connect`。目标设备必须已经开启 ADB TCP，或者已经在本机完成无线调试配对；这里的端口是连接端口，不是配对端口。
 - 连接成功后，型号、序列号、Android 版本和 SDK 版本以设备实时返回的数据为准，不需要填写在四列模板中。
 - 连接失败的设备仍会保存为离线远程设备，并保留设备名称和备注，之后可以在设备管理器中重新连接。
-- AYA 导出的旧完整备份格式仍然兼容；这类文件继续使用 `ID` 列恢复全部已保存字段。
+- AYA-Plus 导出的旧完整备份格式仍然兼容；这类文件继续使用 `ID` 列恢复全部已保存字段。
 - 支持中文或英文表头，不区分大小写、空格、下划线和连字符。
 - 已存在的设备会按 ID 匹配；提供序列号时也会按序列号关联名称和备注。
 - 对于 USB 设备的离线备份，建议保留导出文件中的 `序列号`，这样设备再次连接后才能稳定恢复名称和备注。
@@ -187,18 +185,25 @@ npm run scrcpy
 # 生产构建与当前平台打包
 npm run build
 npm run pack
+
+# macOS：从保留的原图重新生成全部 AYA-Plus 应用图标
+npm run gen:app-icon
 ```
+
+### 品牌升级兼容
+
+AYA-Plus 仅修改对外展示品牌和安装包名称。为保证原 AYA 用户可以原位升级，项目继续保留原应用 ID、Android 设备端协议以及名为 `AYA` 的用户数据目录。因此升级后，原有设备名称、备注、远程设备、视图模式和设置会继续生效。**检查更新** 菜单会打开本项目的 Releases 页面，不再连接上游 AYA 的更新源。
 
 ## 相关项目
 
-- [licia](https://github.com/liriliri/licia)：AYA 使用的 JavaScript 工具库。
-- [luna](https://github.com/liriliri/luna)：AYA 使用的 UI 组件库。
+- [licia](https://github.com/liriliri/licia)：AYA-Plus 使用的 JavaScript 工具库。
+- [luna](https://github.com/liriliri/luna)：AYA-Plus 使用的 UI 组件库。
 - [vivy](https://github.com/liriliri/vivy)：图标生成工具。
 - [echo](https://github.com/liriliri/echo)：HarmonyOS 版本的设备管理工具。
 
 ## 贡献
 
-开发环境与贡献方式可参考 [官方贡献指南](https://aya.liriliri.io/guide/contributing.html)。
+开发环境与贡献方式可参考 [原项目贡献指南](https://aya.liriliri.io/guide/contributing.html)。
 
 ## 许可证
 

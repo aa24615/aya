@@ -2,7 +2,7 @@ branch:
   - reg: ^.+$
     buttons:
       - name: 构建新版本
-        description: 自动递增版本，构建 AYA Linux 与 Windows 安装包并创建 Release
+        description: 自动递增版本，构建 AYA-Plus Linux 与 Windows 安装包并创建 Release
         event: web_trigger_release
         groupName: 构建发版
         isDefault: true

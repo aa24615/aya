@@ -7,7 +7,6 @@ import * as avd from '../window/avd'
 import * as devices from '../window/devices'
 import isMac from 'licia/isMac'
 import { t } from 'common/util'
-import upperCase from 'licia/upperCase'
 import isWindows from 'licia/isWindows'
 import * as updater from 'share/main/lib/updater'
 import { getUserDataPath, handleEvent } from 'share/main/lib/util'
@@ -35,8 +34,8 @@ function getTemplate(): MenuItemConstructorOptions[] {
       ]
     : []
 
-  const aya = {
-    label: upperCase(app.name),
+  const appMenu = {
+    label: app.name,
     submenu: [
       {
         label: t('aboutAya'),
@@ -150,7 +149,7 @@ function getTemplate(): MenuItemConstructorOptions[] {
       {
         label: t('reportIssue'),
         click() {
-          shell.openExternal('https://github.com/liriliri/aya/issues')
+          shell.openExternal('https://github.com/aa24615/aya/issues')
         },
       },
       {
@@ -181,9 +180,9 @@ function getTemplate(): MenuItemConstructorOptions[] {
 
   const template = [tools, help]
   if (isMac) {
-    template.unshift(aya, edit)
+    template.unshift(appMenu, edit)
   } else {
-    template.unshift(aya)
+    template.unshift(appMenu)
   }
 
   return template

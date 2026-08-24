@@ -1,10 +1,10 @@
 <div align="center">
-  <a href="https://aya.liriliri.io/" target="_blank">
-    <img src="https://aya.liriliri.io/icon.png" width="400">
+  <a href="https://cnb.cool/scrmoa/other/aya/-/releases" target="_blank">
+    <img src="build/icon.png" width="400">
   </a>
 </div>
 
-<h1 align="center">AYA</h1>
+<h1 align="center">AYA-Plus</h1>
 
 <div align="center">
 
@@ -14,14 +14,11 @@
 
 <div align="center">
 
-Android ADB desktop app.
-
-<a href="https://www.producthunt.com/posts/aya-1?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-aya&#0045;1" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=899538&theme=light&t=1740125747753" alt="AYA - Open&#0032;source&#0032;desktop&#0032;app&#0032;for&#0032;controlling&#0032;android&#0032;devices | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+AYA-Plus Android ADB desktop app.
 
 [![Windows][windows-image]][release-url]
 [![macOS][mac-image]][release-url]
 [![Linux][linux-image]][release-url]
-[![Downloads][download-image]][release-url]
 ![License][license-image]
 
 </div>
@@ -29,17 +26,16 @@ Android ADB desktop app.
 [windows-image]: https://img.shields.io/badge/-Windows-blue?style=flat-square&logo=windows
 [mac-image]: https://img.shields.io/badge/-macOS-black?style=flat-square&logo=apple
 [linux-image]: https://img.shields.io/badge/-Linux-yellow?style=flat-square&logo=linux
-[download-image]: https://img.shields.io/github/downloads/liriliri/aya/total?style=flat-square
-[release-url]: https://github.com/liriliri/aya/releases
-[license-image]: https://img.shields.io/github/license/liriliri/aya?style=flat-square
+[release-url]: https://cnb.cool/scrmoa/other/aya/-/releases
+[license-image]: https://img.shields.io/github/license/aa24615/aya?style=flat-square
 
 <img src="https://aya.liriliri.io/screencast.png" style="width:100%">
 
-[AYA](https://aya.liriliri.io/) is a desktop application for easily controlling android devices, which can be considered as a GUI wrapper for ADB.
+[AYA-Plus](https://github.com/aa24615/aya) is an enhanced fork of [AYA](https://aya.liriliri.io/) for managing and controlling Android devices through a visual ADB interface.
 
 ## Installation
 
-Click [here](https://github.com/liriliri/aya/releases/) to download and install AYA. Windows x64, Mac arm64, Mac x64 and Linux x86_64 are supported.
+Open the [AYA-Plus Releases](https://cnb.cool/scrmoa/other/aya/-/releases) page to download an installer. Windows x64, Mac arm64, Mac x64 and Linux x86_64 are supported.
 
 ## Features
 
@@ -68,7 +64,7 @@ Device Name,IP Address,Port,Remark
 Front Desk,192.168.1.10,5555,First-floor lobby
 ```
 
-AYA combines the IP address and port, attempts `adb connect`, and then reads the model, serial number, Android version, and SDK version from every connected device. Failed connections remain available as offline remote devices with their imported name and remark. Devices must already have ADB TCP enabled or be paired for wireless debugging; the CSV port is the connection port, not the pairing port.
+AYA-Plus combines the IP address and port, attempts `adb connect`, and then reads the model, serial number, Android version, and SDK version from every connected device. Failed connections remain available as offline remote devices with their imported name and remark. Devices must already have ADB TCP enabled or be paired for wireless debugging; the CSV port is the connection port, not the pairing port.
 
 The complete export format remains supported for backup and re-import:
 
@@ -78,15 +74,19 @@ ID,Serialno,Model,Device Name,Remark,Android Version,SDK Version,Status
 
 CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multiline remarks are supported. IPv4 addresses and ports from 1 to 65535 are accepted. See the [Chinese documentation](README.zh-CN.md#设备名称备注与-csv-管理) for detailed instructions.
 
-For more detailed usage instructions, please read the documentation at [aya.liriliri.io](https://aya.liriliri.io)!
+For more detailed usage instructions, refer to the [upstream AYA documentation](https://aya.liriliri.io).
 
 ## Related Projects
 
-* [licia](https://github.com/liriliri/licia): Utility library used by AYA.
-* [luna](https://github.com/liriliri/luna): UI components used by AYA.
+* [licia](https://github.com/liriliri/licia): Utility library used by AYA-Plus.
+* [luna](https://github.com/liriliri/luna): UI components used by AYA-Plus.
 * [vivy](https://github.com/liriliri/vivy): Icon image generation.
-* [echo](https://github.com/liriliri/echo): Harmony OS version of AYA.
+* [echo](https://github.com/liriliri/echo): Harmony OS device-management project.
 
 ## Contribution
 
-Read [Contributing Guide](https://aya.liriliri.io/guide/contributing.html) for development setup instructions.
+Read the upstream [Contributing Guide](https://aya.liriliri.io/guide/contributing.html) for development setup instructions.
+
+## Brand Assets
+
+AYA-Plus keeps the original application ID, Android helper protocol, and `AYA` user-data directory so existing installations retain their device names, remarks, remote devices, and settings. The **Check for Updates** menu opens this project's Releases page instead of the upstream AYA feed. On macOS, run `npm run gen:app-icon` to regenerate all committed Plus icon assets from the preserved source artwork.

@@ -1,4 +1,4 @@
-# AYA CNB 构建发版
+# AYA-Plus CNB 构建发版
 
 在 CNB 仓库的分支详情页点击 **构建新版本**，选择版本更新类型后，流水线会自动完成版本计算、质量检查、打包和 Release 发布。
 
@@ -17,12 +17,12 @@
 1. 安装项目依赖。
 2. TypeScript 类型检查：`npx tsc --noEmit`。
 3. ESLint：`npm run lint`。
-4. Android 端 AYA 服务构建。
+4. Android 端 AYA-Plus 服务构建。
 
 通过后生成并发布：
 
-- Linux x64：`AYA-{version}-linux-x86_64.AppImage`
-- Windows x64：`AYA-{version}-win-x64.exe`
+- Linux x64：`AYA-Plus-{version}-linux-x86_64.AppImage`
+- Windows x64：`AYA-Plus-{version}-win-x64.exe`
 - `SHA256SUMS.txt`
 
 产物既会保留为流水线构建产物，也会挂载到自动创建的 CNB Release。

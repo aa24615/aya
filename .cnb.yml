@@ -45,7 +45,7 @@
             npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
             BUILD_COMMIT="${CNB_COMMIT:-$(git rev-parse HEAD)}"
             {
-              printf '# AYA %s\n\n' "$RELEASE_TAG"
+              printf '# AYA-Plus %s\n\n' "$RELEASE_TAG"
               printf -- '- 版本变更：v%s → %s（%s）\n' "$CURRENT_VERSION" "$RELEASE_TAG" "$release_type"
               printf -- '- 构建提交：%s\n' "$BUILD_COMMIT"
               printf -- '- 发布产物：Linux x64 AppImage、Windows x64 NSIS\n\n'
@@ -99,24 +99,24 @@
         - name: verify-packages
           script: |
             set -e
-            LINUX_FILE="$(find "release/$RELEASE_VERSION/linux" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
-            WINDOWS_FILE="$(find "release/$RELEASE_VERSION/windows" -maxdepth 1 -type f -name '*.exe' -print -quit)"
-            test -n "$LINUX_FILE" || { echo 'ERROR: 未生成 Linux AppImage'; exit 1; }
-            test -n "$WINDOWS_FILE" || { echo 'ERROR: 未生成 Windows 安装包'; exit 1; }
+            LINUX_FILE="release/$RELEASE_VERSION/linux/AYA-Plus-$RELEASE_VERSION-linux-x86_64.AppImage"
+            WINDOWS_FILE="release/$RELEASE_VERSION/windows/AYA-Plus-$RELEASE_VERSION-win-x64.exe"
+            test -f "$LINUX_FILE" || { echo "ERROR: 未生成 Linux AppImage: $LINUX_FILE"; exit 1; }
+            test -f "$WINDOWS_FILE" || { echo "ERROR: 未生成 Windows 安装包: $WINDOWS_FILE"; exit 1; }
             sha256sum "$LINUX_FILE" "$WINDOWS_FILE" > "release/$RELEASE_VERSION/SHA256SUMS.txt"
             ls -lh "$LINUX_FILE" "$WINDOWS_FILE" "release/$RELEASE_VERSION/SHA256SUMS.txt"
 
         - name: upload-linux-artifact
           uses: cnb.cool/cnb/plugins/cnbcool/upload-artifact@v1
           with:
-            path: ./release/**/*.AppImage
-            name: aya-linux-$RELEASE_VERSION
+            path: ./release/$RELEASE_VERSION/linux/AYA-Plus-$RELEASE_VERSION-linux-x86_64.AppImage
+            name: aya-plus-linux-$RELEASE_VERSION
 
         - name: upload-windows-artifact
           uses: cnb.cool/cnb/plugins/cnbcool/upload-artifact@v1
           with:
-            path: ./release/**/*.exe
-            name: aya-windows-$RELEASE_VERSION
+            path: ./release/$RELEASE_VERSION/windows/AYA-Plus-$RELEASE_VERSION-win-x64.exe
+            name: aya-plus-windows-$RELEASE_VERSION
 
         - name: create-release
           type: git:release
@@ -132,6 +132,6 @@
             type: UPLOAD
             tag: $RELEASE_TAG
             attachments:
-              - ./release/**/*.AppImage
-              - ./release/**/*.exe
-              - ./release/**/SHA256SUMS.txt
+              - ./release/$RELEASE_VERSION/linux/AYA-Plus-$RELEASE_VERSION-linux-x86_64.AppImage
+              - ./release/$RELEASE_VERSION/windows/AYA-Plus-$RELEASE_VERSION-win-x64.exe
+              - ./release/$RELEASE_VERSION/SHA256SUMS.txt

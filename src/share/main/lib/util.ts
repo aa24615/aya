@@ -6,7 +6,7 @@ import { isDev } from '../../common/util'
 import { fileURLToPath } from 'url'
 import log from '../../common/log'
 import endWith from 'licia/endWith'
-import pkg from '../../../../package.json'
+import fs from 'fs-extra'
 
 // @ts-ignore
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -39,9 +39,11 @@ export function resolveResources(p) {
   return ret
 }
 
-if (isDev()) {
-  app.setPath('userData', path.resolve(app.getPath('appData'), pkg.productName))
-}
+// Keep the legacy directory so an AYA-Plus upgrade retains device metadata,
+// settings, window state, and the updater identity created by AYA.
+const legacyUserDataPath = path.resolve(app.getPath('appData'), 'AYA')
+fs.ensureDirSync(legacyUserDataPath)
+app.setPath('userData', legacyUserDataPath)
 
 export function getUserDataPath(p: string) {
   return path.resolve(app.getPath('userData'), p)

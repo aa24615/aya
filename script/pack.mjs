@@ -63,7 +63,7 @@ const config = {
   },
   publish: {
     provider: 'generic',
-    url: 'https://release.liriliri.io/',
+    url: 'https://cnb.cool/scrmoa/other/aya/-/releases/latest/download/',
     channel: publishChannel,
   },
 }
@@ -110,7 +110,7 @@ if (isWindows) {
       identityName: 'LiriLiri.AYAAndroidManager',
       publisher: 'CN=B8CA87F2-EAEA-4C05-B38C-AAA50D3CBA24',
       publisherDisplayName: 'surunzi',
-      displayName: 'AYA Android Manager',
+      displayName: 'AYA-Plus Android Manager',
     }
   }
 }
