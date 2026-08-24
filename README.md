@@ -58,7 +58,10 @@ Open the [AYA-Plus Releases](https://cnb.cool/scrmoa/other/aya/-/releases) page 
 The main window uses fixed-height device cards in the left sidebar. Use the
 search box to filter connected devices by device name or IP address. Searching
 only changes the visible list and does not switch or disconnect the active
-device.
+device. Each card shows the custom device name, falling back to the ADB model
+when no custom name is set, followed by the ADB device ID. Network devices use
+an `IP:port` ID; USB and emulator devices keep their original ADB ID. The model
+is not repeated when a custom name exists, and remarks are not shown here.
 
 ## Device Cards and Batch Screenshots
 

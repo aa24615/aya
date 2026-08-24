@@ -54,12 +54,9 @@ export default observer(function Device() {
   }))
   const filteredDeviceItems = searchTokens.length
     ? deviceItems.filter(({ device, displayName }) => {
-        const searchableValues = [
-          displayName,
-          device.deviceName,
-          device.name,
-          device.id,
-        ].map(normalizeSearchText)
+        const searchableValues = [displayName, device.id].map(
+          normalizeSearchText
+        )
 
         return searchTokens.every((token) =>
           searchableValues.some((value) => value.includes(token))
@@ -309,15 +306,7 @@ export default observer(function Device() {
           ) : (
             map(filteredDeviceItems, ({ device, displayName }) => {
               const online = isDeviceOnline(device)
-              const detail = device.deviceName?.trim()
-                ? device.name?.trim()
-                : ''
-              const title = [
-                displayName,
-                detail,
-                device.id,
-                device.remark,
-              ]
+              const title = [displayName, device.id]
                 .filter(Boolean)
                 .join('\n')
 
@@ -356,11 +345,7 @@ export default observer(function Device() {
                       {online ? t('online') : t('offline')}
                     </span>
                   </div>
-                  {detail && <div className={Style.model}>{detail}</div>}
                   <div className={Style.deviceId}>{device.id}</div>
-                  {device.remark && (
-                    <div className={Style.remark}>{device.remark}</div>
-                  )}
                 </button>
               )
             })
