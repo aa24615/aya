@@ -123,6 +123,7 @@
   "rebootBootloader": "重启到引导模式",
   "deviceManager": "设备管理器",
   "deviceList": "设备列表",
+  "resizeDeviceList": "拖动调整设备列表宽度，双击恢复默认宽度",
   "port": "端口",
   "connect": "连接",
   "disconnect": "断开",

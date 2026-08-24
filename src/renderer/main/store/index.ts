@@ -13,10 +13,42 @@ import { setMemStore } from 'share/renderer/lib/util'
 import isEmpty from 'licia/isEmpty'
 import { IDevice } from 'common/types'
 
+export const DEVICE_LIST_DEFAULT_WIDTH = 224
+export const DEVICE_LIST_MIN_WIDTH = 200
+export const DEVICE_LIST_MAX_WIDTH = 420
+export const DEVICE_LIST_MAIN_MIN_WIDTH = 700
+export const DEVICE_LIST_RESIZER_WIDTH = 8
+
+export function getDeviceListMaxWidth(viewportWidth: number) {
+  return Math.max(
+    DEVICE_LIST_MIN_WIDTH,
+    Math.min(
+      DEVICE_LIST_MAX_WIDTH,
+      viewportWidth -
+        DEVICE_LIST_MAIN_MIN_WIDTH -
+        DEVICE_LIST_RESIZER_WIDTH
+    )
+  )
+}
+
+export function clampDeviceListWidth(
+  width: number,
+  maxWidth = DEVICE_LIST_MAX_WIDTH
+) {
+  if (!Number.isFinite(width)) {
+    return DEVICE_LIST_DEFAULT_WIDTH
+  }
+
+  return Math.round(
+    Math.max(DEVICE_LIST_MIN_WIDTH, Math.min(maxWidth, width))
+  )
+}
+
 class Store extends BaseStore {
   devices: IDevice[] = []
   device: IDevice | null = null
   panel: string = 'overview'
+  deviceListWidth = DEVICE_LIST_DEFAULT_WIDTH
   settings = new Settings()
   application = new Application()
   process = new Process()
@@ -25,6 +57,7 @@ class Store extends BaseStore {
   layout = new Layout()
   ready = false
   private refreshRequest = 0
+  private deviceListWidthDirty = false
   constructor() {
     super()
 
@@ -32,10 +65,12 @@ class Store extends BaseStore {
       devices: observable,
       device: observable,
       panel: observable,
+      deviceListWidth: observable,
       settings: observable,
       ready: observable,
       selectDevice: action,
       selectPanel: action,
+      setDeviceListWidth: action,
     })
 
     this.bindEvent()
@@ -59,16 +94,33 @@ class Store extends BaseStore {
     this.panel = panel
     setMainStore('panel', panel)
   }
+  setDeviceListWidth = (width: number) => {
+    this.deviceListWidthDirty = true
+    this.deviceListWidth = clampDeviceListWidth(width)
+  }
+  saveDeviceListWidth = () => {
+    setMainStore('deviceListWidth', this.deviceListWidth)
+  }
   private async init() {
-    const panel = await main.getMainStore('panel')
-    if (panel) {
-      runInAction(() => (this.panel = panel))
-    }
-
-    const device = await main.getMainStore('device')
-    if (device) {
-      runInAction(() => (this.device = device))
-    }
+    const [panel, device, deviceListWidth] = await Promise.all([
+      main.getMainStore('panel'),
+      main.getMainStore('device'),
+      main.getMainStore('deviceListWidth'),
+    ])
+    runInAction(() => {
+      if (panel) {
+        this.panel = panel
+      }
+      if (device) {
+        this.device = device
+      }
+      if (
+        !this.deviceListWidthDirty &&
+        typeof deviceListWidth === 'number'
+      ) {
+        this.deviceListWidth = clampDeviceListWidth(deviceListWidth)
+      }
+    })
     await this.refreshDevices()
 
     this.ready = true

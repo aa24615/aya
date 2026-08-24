@@ -68,8 +68,13 @@ const getDevices: IpcGetDevices = async function () {
       try {
         const properties = await client.getDevice(device.id).getProperties()
 
-        let name = `${properties['ro.product.manufacturer']} ${properties['ro.product.model']}`
-        const marketName = getMarketName(properties)
+        let name = [
+          properties['ro.product.manufacturer'],
+          properties['ro.product.model'],
+        ]
+          .filter(Boolean)
+          .join(' ')
+        const marketName = getMarketName(properties).trim()
         if (marketName) {
           name = marketName
         }

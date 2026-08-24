@@ -123,6 +123,7 @@
   "rebootBootloader": "Reboot to Bootloader",
   "deviceManager": "Device Manager",
   "deviceList": "Device List",
+  "resizeDeviceList": "Drag to resize the device list; double-click to reset",
   "port": "Port",
   "connect": "Connect",
   "disconnect": "Disconnect",

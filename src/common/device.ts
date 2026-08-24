@@ -13,5 +13,5 @@ export function isDeviceOnline(device: Pick<IDevice, 'type'>) {
 export function getDeviceDisplayName(
   device: Pick<IDevice, 'id' | 'name' | 'deviceName'>
 ) {
-  return device.deviceName?.trim() || device.name || device.id
+  return device.deviceName?.trim() || device.name?.trim() || device.id
 }

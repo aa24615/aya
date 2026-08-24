@@ -159,6 +159,7 @@
   "rebootBootloader": "重啟至 Bootloader",
   "deviceManager": "設備管理員",
   "deviceList": "設備清單",
+  "resizeDeviceList": "拖動調整設備清單寬度，雙擊恢復預設寬度",
   "port": "端口",
   "connect": "連接",
   "disconnect": "斷開連接",
