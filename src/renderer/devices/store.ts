@@ -116,10 +116,39 @@ class Store extends BaseStore {
       ),
       (a, b) => a.id === b.id
     )
+    const deviceMetadata = { ...toJS(this.deviceMetadata) }
+    let metadataChanged = false
+    each(remoteDevices, (device) => {
+      if (!device.serialno) {
+        return
+      }
+      const idKey = this.getDeviceMetadataKey({
+        id: device.id,
+        serialno: '',
+      })
+      const importedMetadata = deviceMetadata[idKey]
+      if (!importedMetadata) {
+        return
+      }
+      const serialKey = this.getDeviceMetadataKey(device)
+      deviceMetadata[serialKey] = {
+        ...(deviceMetadata[serialKey] || {
+          deviceName: '',
+          remark: '',
+        }),
+        ...importedMetadata,
+      }
+      delete deviceMetadata[idKey]
+      metadataChanged = true
+    })
     this.devices = filter(devices, (device) => !isRemoteDevice(device.id))
 
     this.remoteDevices = remoteDevices
     main.setDevicesStore('remoteDevices', remoteDevices)
+    if (metadataChanged) {
+      this.deviceMetadata = deviceMetadata
+      main.setDevicesStore('deviceMetadata', deviceMetadata)
+    }
 
     if (this.device) {
       const id = this.device.id

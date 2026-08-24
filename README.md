@@ -60,13 +60,22 @@ Click [here](https://github.com/liriliri/aya/releases/) to download and install 
 
 The device manager keeps the ADB-reported model and adds two editable fields: **Device Name** and **Remark**. Select a device and click **Edit** to update these fields. Metadata is stored locally and is associated with the device serial number when available.
 
-Use **Export CSV** to back up the current device list or create an import template. Use **Import CSV** to restore metadata and add remote ADB devices. The `ID` column is required. Exported files contain the following columns:
+Use **Export CSV** to create a complete backup of the current device list. For batch network-device import, use these four columns:
+
+```text
+Device Name,IP Address,Port,Remark
+Front Desk,192.168.1.10,5555,First-floor lobby
+```
+
+AYA combines the IP address and port, attempts `adb connect`, and then reads the model, serial number, Android version, and SDK version from every connected device. Failed connections remain available as offline remote devices with their imported name and remark. Devices must already have ADB TCP enabled or be paired for wireless debugging; the CSV port is the connection port, not the pairing port.
+
+The complete export format remains supported for backup and re-import:
 
 ```text
 ID,Serialno,Model,Device Name,Remark,Android Version,SDK Version,Status
 ```
 
-For an offline remote device, use an ADB endpoint such as `192.168.1.10:5555` as its ID. CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multiline remarks are supported. See the [Chinese documentation](README.zh-CN.md#设备名称备注与-csv-管理) for detailed instructions.
+CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multiline remarks are supported. IPv4 addresses and ports from 1 to 65535 are accepted. See the [Chinese documentation](README.zh-CN.md#设备名称备注与-csv-管理) for detailed instructions.
 
 For more detailed usage instructions, please read the documentation at [aya.liriliri.io](https://aya.liriliri.io)!
 

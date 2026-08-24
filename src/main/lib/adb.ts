@@ -40,6 +40,7 @@ import {
   IpcInputKey,
   IpcPairDevice,
   IpcScreencap,
+  IDevice,
 } from 'common/types'
 import path from 'node:path'
 import childProcess from 'node:child_process'
@@ -59,26 +60,32 @@ const getDevices: IpcGetDevices = async function () {
     (device: Device) => device.type === 'emulator' || device.type === 'device'
   )
 
-  return Promise.all(
+  const resolvedDevices = await Promise.all(
     map(devices, async (device: Device) => {
-      const properties = await client.getDevice(device.id).getProperties()
+      try {
+        const properties = await client.getDevice(device.id).getProperties()
 
-      let name = `${properties['ro.product.manufacturer']} ${properties['ro.product.model']}`
-      const marketName = getMarketName(properties)
-      if (marketName) {
-        name = marketName
-      }
+        let name = `${properties['ro.product.manufacturer']} ${properties['ro.product.model']}`
+        const marketName = getMarketName(properties)
+        if (marketName) {
+          name = marketName
+        }
 
-      return {
-        id: device.id,
-        type: device.type,
-        serialno: properties['ro.serialno'] || '',
-        name,
-        androidVersion: properties['ro.build.version.release'],
-        sdkVersion: properties['ro.build.version.sdk'],
+        return {
+          id: device.id,
+          type: device.type,
+          serialno: properties['ro.serialno'] || '',
+          name,
+          androidVersion: properties['ro.build.version.release'],
+          sdkVersion: properties['ro.build.version.sdk'],
+        }
+      } catch (error) {
+        logger.error(`get device properties error: ${device.id}`, error)
+        return null
       }
     })
-  ).catch(() => [])
+  )
+  return resolvedDevices.filter((device): device is IDevice => device !== null)
 }
 
 async function getOverview(deviceId: string) {

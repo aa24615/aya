@@ -12,13 +12,14 @@ import { t } from 'common/util'
 import { notify } from 'share/renderer/lib/util'
 import ToolbarIcon from 'share/renderer/components/ToolbarIcon'
 import store from '../store'
-import { isRemoteDevice } from '../lib/util'
+import { isRemoteDevice, parseRemoteDeviceId } from '../lib/util'
 import some from 'licia/some'
 import CodePairModal from './CodePairModal'
 import { useState } from 'react'
 import DeviceEditModal from './DeviceEditModal'
 import { parseDevicesCsv, stringifyDevicesCsv } from '../lib/csv'
 import map from 'licia/map'
+import { IDeviceCsvRow } from 'common/types'
 
 export default observer(function Toolbar() {
   const [codePairModalVisible, setCodePairModalVisible] = useState(false)
@@ -135,17 +136,21 @@ export default observer(function Toolbar() {
               }
               const rows = parseDevicesCsv(content)
               store.importDevices(rows)
-              notify(t('devicesImported', { count: rows.length }), {
-                icon: 'success',
-              })
-            } catch (error) {
+              const connections = await connectImportedDevices(rows)
               notify(
-                error instanceof Error &&
-                  error.message === 'CSV_ID_HEADER_REQUIRED'
-                  ? t('csvIdHeaderRequired')
-                  : t('csvImportErr'),
-                { icon: 'error' }
+                connections.total > 0
+                  ? t('devicesImportedWithConnections', {
+                      count: rows.length,
+                      connected: connections.connected,
+                      failed: connections.failed,
+                    })
+                  : t('devicesImported', { count: rows.length }),
+                {
+                  icon: connections.failed > 0 ? 'warning' : 'success',
+                }
               )
+            } catch (error) {
+              notify(getCsvImportErrorMessage(error), { icon: 'error' })
             }
           }}
         >
@@ -212,3 +217,51 @@ export default observer(function Toolbar() {
     </>
   )
 })
+
+async function connectImportedDevices(rows: IDeviceCsvRow[]) {
+  const endpoints = new Map<string, { ip: string; port: number }>()
+  for (const row of rows) {
+    const endpoint = parseRemoteDeviceId(row.id)
+    if (!endpoint) {
+      continue
+    }
+    endpoints.set(row.id, endpoint)
+  }
+
+  const results = await Promise.allSettled(
+    Array.from(endpoints.values()).map(({ ip, port }) =>
+      main.connectDevice(ip, port)
+    )
+  )
+  const connected = results.filter((result) => result.status === 'fulfilled')
+    .length
+  if (connected > 0) {
+    try {
+      store.updateDevices(await main.getDevices())
+    } catch {
+      // The main window refresh below will retry field discovery via ADB.
+    }
+    main.sendToWindow('main', 'refreshDevices')
+  }
+  return {
+    total: endpoints.size,
+    connected,
+    failed: endpoints.size - connected,
+  }
+}
+
+function getCsvImportErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) {
+    return t('csvImportErr')
+  }
+  switch (error.message) {
+    case 'CSV_NETWORK_HEADERS_REQUIRED':
+      return t('csvNetworkHeadersRequired')
+    case 'CSV_INVALID_NETWORK_ADDRESS':
+      return t('csvInvalidNetworkAddress')
+    case 'CSV_ID_HEADER_REQUIRED':
+      return t('csvIdHeaderRequired')
+    default:
+      return t('csvImportErr')
+  }
+}

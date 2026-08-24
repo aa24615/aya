@@ -1,4 +1,5 @@
 import { IDevice, IDeviceCsvRow, IDeviceMetadata } from 'common/types'
+import isIp from 'licia/isIp'
 
 interface IExportDevice extends IDevice {
   metadata: IDeviceMetadata
@@ -15,6 +16,11 @@ const headerAliases: Record<keyof IDeviceCsvRow, string[]> = {
   sdkVersion: ['sdkversion', 'sdk版本'],
 }
 
+const networkHeaderAliases = {
+  ip: ['ip', 'ipaddress', 'ip地址'],
+  port: ['port', '端口'],
+}
+
 export function parseDevicesCsv(content: string): IDeviceCsvRow[] {
   const rows = parseCsv(content.replace(/^\uFEFF/, ''))
   if (rows.length === 0) {
@@ -28,15 +34,35 @@ export function parseDevicesCsv(content: string): IDeviceCsvRow[] {
       headerAliases[key].includes(header)
     )
   }
-  if (indexes.id < 0) {
-    throw new Error('CSV_ID_HEADER_REQUIRED')
+  const ipIndex = headers.findIndex((header) =>
+    networkHeaderAliases.ip.includes(header)
+  )
+  const portIndex = headers.findIndex((header) =>
+    networkHeaderAliases.port.includes(header)
+  )
+  const useNetworkColumns = indexes.id < 0
+  if (
+    useNetworkColumns &&
+    (indexes.deviceName < 0 ||
+      ipIndex < 0 ||
+      portIndex < 0 ||
+      indexes.remark < 0)
+  ) {
+    throw new Error('CSV_NETWORK_HEADERS_REQUIRED')
   }
 
   const devices: IDeviceCsvRow[] = []
   for (let index = 1; index < rows.length; index++) {
     const row = rows[index]
-    const id = getCell(row, indexes.id)
-    if (!id) {
+    let id = restoreSpreadsheetCell(getCell(row, indexes.id))
+    if (useNetworkColumns) {
+      const ip = restoreSpreadsheetCell(getCell(row, ipIndex))
+      const port = restoreSpreadsheetCell(getCell(row, portIndex))
+      if (!ip && !port && row.every((cell) => !cell.trim())) {
+        continue
+      }
+      id = getNetworkDeviceId(ip, port)
+    } else if (!id) {
       continue
     }
     const device: IDeviceCsvRow = { id }
@@ -48,6 +74,17 @@ export function parseDevicesCsv(content: string): IDeviceCsvRow[] {
     devices.push(device)
   }
   return devices
+}
+
+function getNetworkDeviceId(ip: string, port: string) {
+  if (!isIp.v4(ip) || !/^\d+$/.test(port)) {
+    throw new Error('CSV_INVALID_NETWORK_ADDRESS')
+  }
+  const portNumber = Number(port)
+  if (portNumber < 1 || portNumber > 65535) {
+    throw new Error('CSV_INVALID_NETWORK_ADDRESS')
+  }
+  return `${ip}:${portNumber}`
 }
 
 export function stringifyDevicesCsv(

@@ -1,10 +1,20 @@
 import isIp from 'licia/isIp'
-import contain from 'licia/contain'
 
 export function isRemoteDevice(deviceId: string) {
-  if (!contain(deviceId, ':')) {
-    return false
-  }
+  return parseRemoteDeviceId(deviceId) !== null
+}
 
-  return isIp.v4(deviceId.split(':')[0])
+export function parseRemoteDeviceId(deviceId: string) {
+  const match = deviceId.match(/^([^:]+):(\d+)$/)
+  if (!match || !isIp.v4(match[1])) {
+    return null
+  }
+  const port = Number(match[2])
+  if (port < 1 || port > 65535) {
+    return null
+  }
+  return {
+    ip: match[1],
+    port,
+  }
 }

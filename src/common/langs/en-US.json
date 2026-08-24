@@ -185,8 +185,11 @@
   "importCsv": "Import CSV",
   "exportCsv": "Export CSV",
   "devicesImported": "Imported {{count}} devices",
+  "devicesImportedWithConnections": "Imported {{count}} devices; connected {{connected}}, failed {{failed}}",
   "devicesExported": "Devices exported to {{path}}",
   "csvIdHeaderRequired": "The CSV file must contain an ID column",
+  "csvNetworkHeadersRequired": "The CSV file must contain Device Name, IP Address, Port, and Remark columns",
+  "csvInvalidNetworkAddress": "The CSV file contains an invalid IPv4 address or port (1-65535)",
   "csvImportErr": "Failed to import the CSV file",
   "csvExportErr": "Failed to export the CSV file"
 }

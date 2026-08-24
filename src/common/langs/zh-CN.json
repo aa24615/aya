@@ -185,8 +185,11 @@
   "importCsv": "导入 CSV",
   "exportCsv": "导出 CSV",
   "devicesImported": "已导入 {{count}} 台设备",
+  "devicesImportedWithConnections": "已导入 {{count}} 台设备，连接成功 {{connected}} 台，连接失败 {{failed}} 台",
   "devicesExported": "设备列表已导出至 {{path}}",
   "csvIdHeaderRequired": "CSV 文件必须包含 ID 列",
+  "csvNetworkHeadersRequired": "CSV 文件必须包含设备名称、IP地址、端口和备注列",
+  "csvInvalidNetworkAddress": "CSV 文件中存在无效的 IPv4 地址或端口（端口范围 1-65535）",
   "csvImportErr": "CSV 文件导入失败",
   "csvExportErr": "CSV 文件导出失败"
 }
