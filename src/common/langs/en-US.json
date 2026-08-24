@@ -123,6 +123,8 @@
   "rebootBootloader": "Reboot to Bootloader",
   "deviceManager": "Device Manager",
   "deviceList": "Device List",
+  "searchDevice": "Search by device name or IP",
+  "deviceSearchResult": "Showing {{count}} of {{total}} devices",
   "resizeDeviceList": "Drag to resize the device list; double-click to reset",
   "port": "Port",
   "connect": "Connect",

@@ -53,6 +53,15 @@ Open the [AYA-Plus Releases](https://cnb.cool/scrmoa/other/aya/-/releases) page 
 * Device list import and export in CSV format
 * Device table/card views with batch screenshot refresh
 
+## Main Device List
+
+The main window uses fixed-height device cards in the left sidebar. Use the
+search box to filter connected devices by device name or IP address. Searching
+only changes the visible list and does not switch or disconnect the active
+device.
+
+## Device Cards and Batch Screenshots
+
 Device cards use a fixed-height horizontal layout with complete device
 metadata on the left and the latest thumbnail on the right. Selecting a card
 shows the full screenshot in the resizable pane on the right.
