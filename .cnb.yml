@@ -1,0 +1,138 @@
+'**':
+  web_trigger_release:
+    - runner:
+        tags: cnb:arch:amd64
+        cpus: 4
+      docker:
+        image: electronuserland/builder:22-wine
+        volumes:
+          - /root/.npm:cow
+          - /root/.gradle:cow
+          - /root/.cache/electron:cow
+          - /root/.cache/electron-builder:cow
+      stages:
+        - name: prepare-release
+          script: |
+            set -e
+            case "$release_type" in
+              major|minor|patch) ;;
+              *) echo "ERROR: 版本更新类型只能是 major、minor 或 patch"; exit 1 ;;
+            esac
+
+            git submodule update --init --recursive
+            git fetch --tags --force origin
+
+            PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+            CURRENT_VERSION="$({
+              printf '%s\n' "$PACKAGE_VERSION"
+              git tag --list 'v*' | sed -n 's/^v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'
+            } | sort -V | tail -1)"
+
+            MAJOR="${CURRENT_VERSION%%.*}"
+            VERSION_REMAINDER="${CURRENT_VERSION#*.}"
+            MINOR="${VERSION_REMAINDER%%.*}"
+            PATCH="${VERSION_REMAINDER#*.}"
+            case "$release_type" in
+              major) RELEASE_VERSION="$((MAJOR + 1)).0.0" ;;
+              minor) RELEASE_VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+              patch) RELEASE_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+            esac
+            RELEASE_TAG="v$RELEASE_VERSION"
+            git rev-parse "$RELEASE_TAG" >/dev/null 2>&1 && {
+              echo "ERROR: Release Tag 已存在: $RELEASE_TAG"
+              exit 1
+            }
+
+            npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
+            BUILD_COMMIT="${CNB_COMMIT:-$(git rev-parse HEAD)}"
+            {
+              printf '# AYA %s\n\n' "$RELEASE_TAG"
+              printf -- '- 版本变更：v%s → %s（%s）\n' "$CURRENT_VERSION" "$RELEASE_TAG" "$release_type"
+              printf -- '- 构建提交：%s\n' "$BUILD_COMMIT"
+              printf -- '- 发布产物：Linux x64 AppImage、Windows x64 NSIS\n\n'
+              printf '## 最近提交\n\n'
+              git log -20 --pretty='- %s (`%h`)'
+            } > RELEASE_NOTES.md
+
+            printf '当前版本：v%s，下一版本：%s\n' "$CURRENT_VERSION" "$RELEASE_TAG"
+            printf '##[set-output release_version=%s]\n' "$RELEASE_VERSION"
+            printf '##[set-output release_tag=%s]\n' "$RELEASE_TAG"
+          exports:
+            release_version: RELEASE_VERSION
+            release_tag: RELEASE_TAG
+
+        - name: quality-gate
+          script: |
+            set -e
+            npm install
+            npx tsc --noEmit
+            npm run lint
+
+        - name: build-android-server
+          image: mobiledevops/android-sdk-image:34.0.1
+          script: |
+            set -e
+            export LANG=C.UTF-8
+            export LC_ALL=C.UTF-8
+            cd server
+            ./gradlew :server:assembleRelease
+            cd ..
+            mkdir -p resources
+            mv -f server/aya.dex resources/aya.dex
+
+        - name: package-linux
+          script: |
+            set -e
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            npm run adb -- --platform linux
+            npm run scrcpy
+            npm run build
+            npm run pack -- --linux
+
+        - name: package-windows
+          script: |
+            set -e
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            npm run adb -- --platform win32
+            npm run sync:resources
+            npm run pack -- --win
+
+        - name: verify-packages
+          script: |
+            set -e
+            LINUX_FILE="$(find "release/$RELEASE_VERSION/linux" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+            WINDOWS_FILE="$(find "release/$RELEASE_VERSION/windows" -maxdepth 1 -type f -name '*.exe' -print -quit)"
+            test -n "$LINUX_FILE" || { echo 'ERROR: 未生成 Linux AppImage'; exit 1; }
+            test -n "$WINDOWS_FILE" || { echo 'ERROR: 未生成 Windows 安装包'; exit 1; }
+            sha256sum "$LINUX_FILE" "$WINDOWS_FILE" > "release/$RELEASE_VERSION/SHA256SUMS.txt"
+            ls -lh "$LINUX_FILE" "$WINDOWS_FILE" "release/$RELEASE_VERSION/SHA256SUMS.txt"
+
+        - name: upload-linux-artifact
+          uses: cnb.cool/cnb/plugins/cnbcool/upload-artifact@v1
+          with:
+            path: ./release/**/*.AppImage
+            name: aya-linux-$RELEASE_VERSION
+
+        - name: upload-windows-artifact
+          uses: cnb.cool/cnb/plugins/cnbcool/upload-artifact@v1
+          with:
+            path: ./release/**/*.exe
+            name: aya-windows-$RELEASE_VERSION
+
+        - name: create-release
+          type: git:release
+          options:
+            tag: $RELEASE_TAG
+            title: 'Release $RELEASE_TAG'
+            descriptionFromFile: RELEASE_NOTES.md
+            latest: 'true'
+
+        - name: upload-release-attachments
+          image: cnbcool/attachments:latest
+          settings:
+            type: UPLOAD
+            tag: $RELEASE_TAG
+            attachments:
+              - ./release/**/*.AppImage
+              - ./release/**/*.exe
+              - ./release/**/SHA256SUMS.txt

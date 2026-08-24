@@ -1,0 +1,21 @@
+branch:
+  - reg: ^.+$
+    buttons:
+      - name: 构建新版本
+        description: 自动递增版本，构建 AYA Linux 与 Windows 安装包并创建 Release
+        event: web_trigger_release
+        groupName: 构建发版
+        isDefault: true
+        inputs:
+          release_type:
+            name: 版本更新类型
+            type: radio
+            required: true
+            default: patch
+            options:
+              - name: 版本更新（1.0.0 → 2.0.0）
+                value: major
+              - name: 特性更新（1.0.0 → 1.1.0）
+                value: minor
+              - name: 修复补丁（1.0.0 → 1.0.1）
+                value: patch
