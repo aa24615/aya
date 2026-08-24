@@ -63,7 +63,7 @@
         - name: quality-gate
           script: |
             set -e
-            npm ci --legacy-peer-deps
+            npm install --legacy-peer-deps
             npx tsc --noEmit
             npm run lint
 
