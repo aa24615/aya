@@ -186,6 +186,14 @@ body {
   }
 }
 
+.toolbar-icon-disabled {
+  opacity: 0.6;
+  button {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
 .modal-setting-row {
   padding-left: 0 !important;
   padding-right: 0 !important;

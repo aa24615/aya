@@ -216,6 +216,7 @@ function item(title, value, icon = 'info', onDoubleClick?: () => void) {
   return (
     <div
       className={Style.item}
+      title={t('copy')}
       onClick={copyValue}
       onDoubleClick={() => {
         if (!onDoubleClick) {

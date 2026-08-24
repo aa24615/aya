@@ -5,14 +5,22 @@ import isMac from 'licia/isMac'
 import $ from 'licia/$'
 import mainObj from './main'
 import { webFrame, webUtils } from 'electron'
+import { i18n, t } from 'common/util'
 
 let titleBar: Titlebar
 
 window.addEventListener('DOMContentLoaded', async () => {
   const isCustomTitleBar = await mainObj.isCustomTitlebar()
   if (isCustomTitleBar) {
+    i18n.locale(await mainObj.getLanguage())
     titleBar = new Titlebar({
       containerOverflow: 'hidden',
+      tooltips: {
+        minimize: t('minimizeWindow'),
+        maximize: t('maximizeWindow'),
+        restoreDown: t('restoreWindow'),
+        close: t('closeWindow'),
+      },
     })
     const $body = $('body')
     $body.addClass('custom-titlebar')

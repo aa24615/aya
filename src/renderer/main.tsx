@@ -32,6 +32,7 @@ import './luna.scss'
 import 'share/renderer/main.scss'
 import './main.scss'
 import './icon.css'
+import { initGeneratedIconTooltips } from './lib/iconTooltip'
 
 const logger = log('renderer')
 logger.info('start')
@@ -82,6 +83,7 @@ function renderApp() {
 ;(async function () {
   const language = await main.getLanguage()
   i18n.locale(language)
+  initGeneratedIconTooltips()
 
   LunaModal.i18n.locale('en-US')
   LunaModal.i18n.set('en-US', {

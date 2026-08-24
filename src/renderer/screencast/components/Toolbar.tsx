@@ -48,7 +48,7 @@ export default observer(function Toolbar() {
       <LunaToolbar className={Style.container}>
         <ToolbarIcon
           icon="power"
-          title={t('power')}
+          title={t('powerKey')}
           onClick={inputKey(AndroidKeyCode.Power)}
         />
         <ToolbarIcon
@@ -97,7 +97,9 @@ export default observer(function Toolbar() {
         />
         <ToolbarIcon
           icon="video-recorder"
-          title={t('screenRecording')}
+          title={t(
+            store.recording ? 'stopScreenRecording' : 'startScreenRecording'
+          )}
           state={store.recording ? 'hover' : ''}
           onClick={() => {
             if (store.recording) {
@@ -110,7 +112,9 @@ export default observer(function Toolbar() {
         <LunaToolbarSeparator />
         <ToolbarIcon
           icon="pin"
-          title={t('alwaysOnTop')}
+          title={t(
+            store.alwaysOnTop ? 'disableAlwaysOnTop' : 'enableAlwaysOnTop'
+          )}
           state={store.alwaysOnTop ? 'hover' : ''}
           onClick={() => {
             store.setAlwaysOnTop(!store.alwaysOnTop)

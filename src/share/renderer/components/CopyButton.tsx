@@ -22,10 +22,15 @@ export default function CopyButton(props: IProps) {
   }
 
   return (
-    <div className={className('icon', props.className)} onClick={onClick}>
+    <div
+      className={className('icon', props.className)}
+      title={t('copy')}
+      aria-label={t('copy')}
+      onClick={onClick}
+    >
       <span
         className={`icon-${showSuccess ? 'check' : 'copy'}`}
-        title={t('copy')}
+        aria-hidden="true"
         style={style}
       ></span>
     </div>
