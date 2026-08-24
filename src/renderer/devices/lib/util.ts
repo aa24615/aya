@@ -4,6 +4,11 @@ export function isRemoteDevice(deviceId: string) {
   return parseRemoteDeviceId(deviceId) !== null
 }
 
+export function normalizeRemoteDeviceId(deviceId: string) {
+  const endpoint = parseRemoteDeviceId(deviceId)
+  return endpoint ? `${endpoint.ip}:${endpoint.port}` : null
+}
+
 export function parseRemoteDeviceId(deviceId: string) {
   const match = deviceId.match(/^([^:]+):(\d+)$/)
   if (!match || !isIp.v4(match[1])) {

@@ -145,6 +145,7 @@ export default observer(function Toolbar() {
               if (content === null) {
                 return
               }
+              await store.whenInitialized()
               const rows = parseDevicesCsv(content)
               store.importDevices(rows)
               const connections = await connectImportedDevices(rows)
@@ -171,20 +172,23 @@ export default observer(function Toolbar() {
           disabled={store.getAllDevices().length === 0}
           onClick={async () => {
             try {
+              await store.whenInitialized()
               const devices = map(store.getAllDevices(), (device) => ({
                 ...device,
                 metadata: store.getDeviceMetadata(device),
                 status: device.type === 'offline' ? t('offline') : t('online'),
               }))
               const content = stringifyDevicesCsv(devices, [
+                '设备名称',
+                'IP地址',
+                '端口',
+                '备注',
                 'ID',
-                t('serialno'),
-                t('model'),
-                t('deviceName'),
-                t('remark'),
-                t('androidVersion'),
-                t('sdkVersion'),
-                t('status'),
+                '序列号',
+                '型号',
+                'Android版本',
+                'SDK版本',
+                '状态',
               ])
               const filePath = await main.exportDevicesCsv(content)
               if (filePath) {
@@ -299,7 +303,7 @@ async function connectImportedDevices(rows: IDeviceCsvRow[]) {
     if (!endpoint) {
       continue
     }
-    endpoints.set(row.id, endpoint)
+    endpoints.set(`${endpoint.ip}:${endpoint.port}`, endpoint)
   }
 
   const results = await Promise.allSettled(

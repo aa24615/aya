@@ -3,7 +3,19 @@ import type { IDevice } from './types'
 export function getDeviceMetadataKey(
   device: Pick<IDevice, 'id' | 'serialno'>
 ) {
-  return device.serialno ? `serial:${device.serialno}` : `id:${device.id}`
+  return getDeviceMetadataKeys(device)[0]
+}
+
+export function getDeviceMetadataKeys(
+  device: Pick<IDevice, 'id' | 'serialno'>
+) {
+  const remoteDeviceId = normalizeRemoteDeviceId(device.id)
+  const idKey = `id:${remoteDeviceId || device.id}`
+  const serialKey = device.serialno ? `serial:${device.serialno}` : ''
+  if (remoteDeviceId) {
+    return serialKey ? [idKey, serialKey] : [idKey]
+  }
+  return serialKey ? [serialKey, idKey] : [idKey]
 }
 
 export function isDeviceOnline(device: Pick<IDevice, 'type'>) {
@@ -14,6 +26,20 @@ export function getDeviceDisplayName(
   device: Pick<IDevice, 'id' | 'name' | 'deviceName'>
 ) {
   return device.deviceName?.trim() || device.name?.trim() || device.id
+}
+
+function normalizeRemoteDeviceId(deviceId: string) {
+  const match = deviceId.match(/^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/)
+  if (!match) {
+    return null
+  }
+  const ipParts = match[1].split('.').map(Number)
+  const validIp = ipParts.every((part) => part >= 0 && part <= 255)
+  const port = Number(match[2])
+  if (!validIp || port < 1 || port > 65535) {
+    return null
+  }
+  return `${ipParts.join('.')}:${port}`
 }
 
 /**

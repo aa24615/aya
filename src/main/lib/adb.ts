@@ -42,7 +42,7 @@ import {
   IpcPairDevice,
   IDeviceMetadata,
 } from 'common/types'
-import { getDeviceMetadataKey } from 'common/device'
+import { getDeviceMetadataKeys } from 'common/device'
 import path from 'node:path'
 import childProcess from 'node:child_process'
 import isMac from 'licia/isMac'
@@ -80,9 +80,12 @@ const getDevices: IpcGetDevices = async function () {
         }
 
         const serialno = properties['ro.serialno'] || ''
-        const metadata = deviceMetadata[
-          getDeviceMetadataKey({ id: device.id, serialno })
-        ]
+        const metadata = getDeviceMetadataKeys({
+          id: device.id,
+          serialno,
+        })
+          .map((key) => deviceMetadata[key])
+          .find(Boolean)
 
         return {
           id: device.id,

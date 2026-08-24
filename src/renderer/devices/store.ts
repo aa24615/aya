@@ -11,12 +11,13 @@ import each from 'licia/each'
 import filter from 'licia/filter'
 import concat from 'licia/concat'
 import unique from 'licia/unique'
-import { isRemoteDevice } from './lib/util'
+import { isRemoteDevice, normalizeRemoteDeviceId } from './lib/util'
 import dataUrl from 'licia/dataUrl'
 import isStr from 'licia/isStr'
 import find from 'licia/find'
 import {
   getDeviceMetadataKey,
+  getDeviceMetadataKeys,
   getDeviceScreenshotCacheKey,
   isDeviceOnline,
 } from 'common/device'
@@ -47,6 +48,84 @@ function clampScreenshotPaneWeight(weight: number) {
   return Math.max(25, Math.min(50, weight))
 }
 
+function getNormalizedDeviceId(deviceId: string) {
+  return normalizeRemoteDeviceId(deviceId) || deviceId
+}
+
+function mergeRemoteDevice(target: IDevice, source: IDevice) {
+  const useSource = isDeviceOnline(source) || !isDeviceOnline(target)
+  if (useSource) {
+    target.name = source.name || target.name
+    target.serialno = source.serialno || target.serialno
+    target.androidVersion = source.androidVersion || target.androidVersion
+    target.sdkVersion = source.sdkVersion || target.sdkVersion
+    target.type = source.type
+    return
+  }
+
+  target.name ||= source.name
+  target.serialno ||= source.serialno
+  target.androidVersion ||= source.androidVersion
+  target.sdkVersion ||= source.sdkVersion
+}
+
+function mergeRemoteDevices(devices: IDevice[]) {
+  const mergedDevices: IDevice[] = []
+  const devicesById = new Map<string, IDevice>()
+  each(devices, (device) => {
+    const existing = devicesById.get(device.id)
+    if (existing) {
+      mergeRemoteDevice(existing, device)
+      return
+    }
+    mergedDevices.push(device)
+    devicesById.set(device.id, device)
+  })
+  return mergedDevices
+}
+
+function mergeImportedRow(
+  previous: IDeviceCsvRow | undefined,
+  row: IDeviceCsvRow,
+  id: string
+) {
+  const merged = {
+    ...previous,
+    ...row,
+    id,
+  }
+  const systemFieldKeys: (keyof IDeviceCsvRow)[] = [
+    'serialno',
+    'model',
+    'androidVersion',
+    'sdkVersion',
+  ]
+  for (const key of systemFieldKeys) {
+    if (!row[key] && previous?.[key]) {
+      merged[key] = previous[key]
+    }
+  }
+  return merged
+}
+
+function migrateNormalizedIdMetadata(
+  metadata: Record<string, IDeviceMetadata>,
+  previousId: string,
+  normalizedId: string
+) {
+  if (previousId === normalizedId) {
+    return false
+  }
+  const previousKey = `id:${previousId}`
+  const normalizedKey = `id:${normalizedId}`
+  if (metadata[previousKey]) {
+    metadata[normalizedKey] ||= metadata[previousKey]
+    delete metadata[previousKey]
+    return true
+  }
+  return false
+}
+
 class Store extends BaseStore {
   filter = ''
   ip = ''
@@ -71,6 +150,7 @@ class Store extends BaseStore {
   >()
   private initializedScreenshotCaches = new Set<string>()
   private screenshotPaneWeightDirty = false
+  private initPromise: Promise<void>
   constructor() {
     super()
     makeObservable(this, {
@@ -98,8 +178,11 @@ class Store extends BaseStore {
       setViewMode: action,
     })
 
-    this.init()
+    this.initPromise = this.init()
     this.bindEvent()
+  }
+  whenInitialized() {
+    return this.initPromise
   }
   async init() {
     const remoteDevices: IDevice[] = await main.getDevicesStore('remoteDevices')
@@ -167,50 +250,40 @@ class Store extends BaseStore {
   }
   updateDevices(devices: IDevice[]) {
     const previousOnline = new Map(
-      this.getAllDevices().map((device) => [device.id, isDeviceOnline(device)])
-    )
-    let remoteDevices: IDevice[] = toJS(this.remoteDevices)
-    each(remoteDevices, (device) => {
-      device.type = 'offline'
-    })
-    remoteDevices = unique(remoteDevices, (a, b) => {
-      if (a.serialno && b.serialno) {
-        return a.serialno === b.serialno
-      }
-      return a.id === b.id
-    })
-    remoteDevices = unique(
-      concat(
-        remoteDevices,
-        filter(devices, (device) => isRemoteDevice(device.id))
-      ),
-      (a, b) => a.id === b.id
+      this.getAllDevices().map((device) => [
+        getNormalizedDeviceId(device.id),
+        isDeviceOnline(device),
+      ])
     )
     const deviceMetadata = { ...toJS(this.deviceMetadata) }
     let metadataChanged = false
-    each(remoteDevices, (device) => {
-      if (!device.serialno) {
-        return
+    const storedRemoteDevices: IDevice[] = toJS(this.remoteDevices).map(
+      (device) => {
+        const normalizedId = getNormalizedDeviceId(device.id)
+        metadataChanged =
+          migrateNormalizedIdMetadata(
+            deviceMetadata,
+            device.id,
+            normalizedId
+          ) || metadataChanged
+        return {
+          ...device,
+          id: normalizedId,
+          type: 'offline',
+        }
       }
-      const idKey = getDeviceMetadataKey({
-        id: device.id,
-        serialno: '',
-      })
-      const importedMetadata = deviceMetadata[idKey]
-      if (!importedMetadata) {
-        return
-      }
-      const serialKey = getDeviceMetadataKey(device)
-      deviceMetadata[serialKey] = {
-        ...(deviceMetadata[serialKey] || {
-          deviceName: '',
-          remark: '',
-        }),
-        ...importedMetadata,
-      }
-      delete deviceMetadata[idKey]
-      metadataChanged = true
-    })
+    )
+    const remoteDevices = mergeRemoteDevices(
+      concat(
+        storedRemoteDevices,
+        filter(devices, (device) => isRemoteDevice(device.id)).map(
+          (device) => ({
+            ...device,
+            id: getNormalizedDeviceId(device.id),
+          })
+        )
+      )
+    )
     this.devices = filter(devices, (device) => !isRemoteDevice(device.id))
 
     this.remoteDevices = remoteDevices
@@ -227,7 +300,7 @@ class Store extends BaseStore {
     })
 
     if (this.device) {
-      const id = this.device.id
+      const id = getNormalizedDeviceId(this.device.id)
       const device = find(
         concat(remoteDevices, this.devices),
         (device) => device.id === id
@@ -280,12 +353,15 @@ class Store extends BaseStore {
     }
   }
   getDeviceMetadata(device: Pick<IDevice, 'id' | 'serialno'>) {
-    return (
-      this.deviceMetadata[getDeviceMetadataKey(device)] || {
-        deviceName: '',
-        remark: '',
+    for (const key of getDeviceMetadataKeys(device)) {
+      if (this.deviceMetadata[key]) {
+        return this.deviceMetadata[key]
       }
-    )
+    }
+    return {
+      deviceName: '',
+      remark: '',
+    }
   }
   setDeviceMetadata(device: IDevice, deviceName: string, remark: string) {
     const key = getDeviceMetadataKey(device)
@@ -299,11 +375,37 @@ class Store extends BaseStore {
     main.setDevicesStore('deviceMetadata', toJS(this.deviceMetadata))
   }
   importDevices(rows: IDeviceCsvRow[]) {
-    const remoteDevices = toJS(this.remoteDevices)
     const deviceMetadata = { ...toJS(this.deviceMetadata) }
-    const devices = concat(toJS(this.devices), remoteDevices)
+    const remoteDevices: IDevice[] = []
+    const remoteById = new Map<string, IDevice>()
+    each(toJS(this.remoteDevices), (storedDevice) => {
+      const normalizedId = getNormalizedDeviceId(storedDevice.id)
+      migrateNormalizedIdMetadata(
+        deviceMetadata,
+        storedDevice.id,
+        normalizedId
+      )
+      const normalizedDevice = {
+        ...storedDevice,
+        id: normalizedId,
+      }
+      const existing = remoteById.get(normalizedId)
+      if (existing) {
+        mergeRemoteDevice(existing, normalizedDevice)
+      } else {
+        remoteDevices.push(normalizedDevice)
+        remoteById.set(normalizedId, normalizedDevice)
+      }
+    })
 
+    const devices = concat(toJS(this.devices), remoteDevices)
+    const importedRows = new Map<string, IDeviceCsvRow>()
     each(rows, (row) => {
+      const id = getNormalizedDeviceId(row.id)
+      importedRows.set(id, mergeImportedRow(importedRows.get(id), row, id))
+    })
+
+    each(Array.from(importedRows.values()), (row) => {
       let device = find(devices, (device) => device.id === row.id)
       if (isRemoteDevice(row.id)) {
         if (!device) {
@@ -317,17 +419,18 @@ class Store extends BaseStore {
           }
           remoteDevices.push(device)
           devices.push(device)
-        } else if (find(remoteDevices, (remote) => remote.id === row.id)) {
-          if (row.model !== undefined) {
+          remoteById.set(row.id, device)
+        } else if (remoteById.has(row.id) && !isDeviceOnline(device)) {
+          if (row.model) {
             device.name = row.model
           }
-          if (row.serialno !== undefined) {
+          if (row.serialno) {
             device.serialno = row.serialno
           }
-          if (row.androidVersion !== undefined) {
+          if (row.androidVersion) {
             device.androidVersion = row.androidVersion
           }
-          if (row.sdkVersion !== undefined) {
+          if (row.sdkVersion) {
             device.sdkVersion = row.sdkVersion
           }
         }
@@ -336,29 +439,41 @@ class Store extends BaseStore {
       if (!device && row.serialno) {
         device = find(devices, (device) => device.serialno === row.serialno)
       }
+      const idKey = getDeviceMetadataKey({
+        id: row.id,
+        serialno: '',
+      })
       const metadataDevice = {
         id: row.id,
-        serialno: row.serialno || device?.serialno || '',
+        serialno: device?.serialno || row.serialno || '',
       }
-      const key = getDeviceMetadataKey(metadataDevice)
-      const current = deviceMetadata[key] || {
-        deviceName: '',
-        remark: '',
-      }
+      const metadataKeys = getDeviceMetadataKeys(metadataDevice)
+      const key = metadataKeys[0]
+      const current =
+        metadataKeys
+          .map((metadataKey) => deviceMetadata[metadataKey])
+          .find(Boolean) || {
+          deviceName: '',
+          remark: '',
+        }
       deviceMetadata[key] = {
         deviceName:
           row.deviceName === undefined ? current.deviceName : row.deviceName,
         remark: row.remark === undefined ? current.remark : row.remark,
+      }
+      if (!isRemoteDevice(row.id) && key !== idKey) {
+        delete deviceMetadata[idKey]
       }
     })
 
     this.remoteDevices = remoteDevices
     this.deviceMetadata = deviceMetadata
     if (this.device) {
+      const selectedId = getNormalizedDeviceId(this.device.id)
       this.device =
         find(
           concat(this.devices, remoteDevices),
-          (device) => device.id === this.device?.id
+          (device) => device.id === selectedId
         ) || null
     }
     main.setDevicesStore('remoteDevices', remoteDevices)
@@ -678,7 +793,7 @@ class Store extends BaseStore {
     main.on('changeMemStore', (name, val) => {
       switch (name) {
         case 'devices':
-          this.updateDevices(val)
+          void this.whenInitialized().then(() => this.updateDevices(val))
           break
       }
     })

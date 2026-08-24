@@ -95,7 +95,7 @@ name plus part of its IP address.
 
 ## Device Metadata and CSV
 
-The device manager keeps the ADB-reported model and adds two editable fields: **Device Name** and **Remark**. Select a device and click **Edit** to update these fields. Metadata is stored locally and is associated with the device serial number when available.
+The device manager keeps the ADB-reported model and adds two editable fields: **Device Name** and **Remark**. Select a device and click **Edit** to update these fields. Wireless-device metadata is stored per IP address and port, while USB and emulator metadata uses the serial number when available. Existing serial-based metadata remains readable for compatibility.
 
 Use **Export CSV** to create a complete backup of the current device list. For batch network-device import, use these four columns:
 
@@ -106,11 +106,18 @@ Front Desk,192.168.1.10,5555,First-floor lobby
 
 AYA-Plus combines the IP address and port, attempts `adb connect`, and then reads the model, serial number, Android version, and SDK version from every connected device. Failed connections remain available as offline remote devices with their imported name and remark. Devices must already have ADB TCP enabled or be paired for wireless debugging; the CSV port is the connection port, not the pairing port.
 
-The complete export format remains supported for backup and re-import:
+The complete export format uses stable Chinese headers and keeps the four
+network-management fields first:
 
 ```text
-ID,Serialno,Model,Device Name,Remark,Android Version,SDK Version,Status
+设备名称,IP地址,端口,备注,ID,序列号,型号,Android版本,SDK版本,状态
 ```
+
+Wireless devices export the IP address and port into separate columns; USB and
+emulator rows leave those columns empty and retain their original ADB ID. The
+same IP address and numeric port form one unique device. Re-importing that
+endpoint updates its device name and remark instead of adding another row, and
+the last duplicate CSV row wins. Legacy eight-column exports remain supported.
 
 CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multiline remarks are supported. IPv4 addresses and ports from 1 to 65535 are accepted. See the [Chinese documentation](README.zh-CN.md#设备名称备注与-csv-管理) for detailed instructions.
 

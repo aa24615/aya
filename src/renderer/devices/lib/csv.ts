@@ -1,5 +1,9 @@
 import { IDevice, IDeviceCsvRow, IDeviceMetadata } from 'common/types'
 import isIp from 'licia/isIp'
+import {
+  normalizeRemoteDeviceId,
+  parseRemoteDeviceId,
+} from './util'
 
 interface IExportDevice extends IDevice {
   metadata: IDeviceMetadata
@@ -8,18 +12,52 @@ interface IExportDevice extends IDevice {
 
 const headerAliases: Record<keyof IDeviceCsvRow, string[]> = {
   id: ['id', 'deviceid', '设备id', '设备编号'],
-  serialno: ['serialno', 'serialnumber', '序列号'],
-  model: ['model', '型号'],
-  deviceName: ['devicename', '设备名称'],
-  remark: ['remark', 'remarks', 'note', 'notes', '备注'],
-  androidVersion: ['androidversion', 'android版本'],
-  sdkVersion: ['sdkversion', 'sdk版本'],
+  serialno: [
+    'serialno',
+    'serialnumber',
+    '序列号',
+    '序列號',
+    'الرقم التسلسلي',
+    '´No. serie',
+    'Numéro de série',
+    'Número de Série',
+    'Серийный номер',
+    'Seri Numarası',
+  ],
+  model: ['model', '型号', '型號', 'نموذج', 'Modelo', 'Modèle', 'Модель'],
+  deviceName: ['devicename', '设备名称', '設備名稱'],
+  remark: ['remark', 'remarks', 'note', 'notes', '备注', '備註'],
+  androidVersion: [
+    'androidversion',
+    'android版本',
+    'اصدار الاندرويد',
+    'Versión de Android',
+    'Version Android',
+    'Versão do Android',
+    'Версия Android',
+    'Android Sürümü',
+  ],
+  sdkVersion: [
+    'sdkversion',
+    'sdk版本',
+    'Versión de SDK',
+    'Versão do SDK',
+    'SDK Версия',
+    'SDK Sürümü',
+  ],
 }
 
 const networkHeaderAliases = {
   ip: ['ip', 'ipaddress', 'ip地址'],
   port: ['port', '端口'],
 }
+
+const systemFieldKeys: (keyof IDeviceCsvRow)[] = [
+  'serialno',
+  'model',
+  'androidVersion',
+  'sdkVersion',
+]
 
 export function parseDevicesCsv(content: string): IDeviceCsvRow[] {
   const rows = parseCsv(content.replace(/^\uFEFF/, ''))
@@ -30,50 +68,64 @@ export function parseDevicesCsv(content: string): IDeviceCsvRow[] {
   const headers = rows[0].map(normalizeHeader)
   const indexes = {} as Record<keyof IDeviceCsvRow, number>
   for (const key of Object.keys(headerAliases) as (keyof IDeviceCsvRow)[]) {
-    indexes[key] = headers.findIndex((header) =>
-      headerAliases[key].includes(header)
-    )
+    indexes[key] = findHeaderIndex(headers, headerAliases[key])
   }
-  const ipIndex = headers.findIndex((header) =>
-    networkHeaderAliases.ip.includes(header)
-  )
-  const portIndex = headers.findIndex((header) =>
-    networkHeaderAliases.port.includes(header)
-  )
-  const useNetworkColumns = indexes.id < 0
+  const ipIndex = findHeaderIndex(headers, networkHeaderAliases.ip)
+  const portIndex = findHeaderIndex(headers, networkHeaderAliases.port)
+  const hasIpColumn = ipIndex >= 0
+  const hasPortColumn = portIndex >= 0
+  if (hasIpColumn !== hasPortColumn) {
+    throw new Error('CSV_NETWORK_HEADERS_REQUIRED')
+  }
   if (
-    useNetworkColumns &&
+    indexes.id < 0 &&
     (indexes.deviceName < 0 ||
-      ipIndex < 0 ||
-      portIndex < 0 ||
+      !hasIpColumn ||
       indexes.remark < 0)
   ) {
     throw new Error('CSV_NETWORK_HEADERS_REQUIRED')
   }
 
-  const devices: IDeviceCsvRow[] = []
+  const devices = new Map<string, IDeviceCsvRow>()
   for (let index = 1; index < rows.length; index++) {
     const row = rows[index]
-    let id = restoreSpreadsheetCell(getCell(row, indexes.id))
-    if (useNetworkColumns) {
-      const ip = restoreSpreadsheetCell(getCell(row, ipIndex))
-      const port = restoreSpreadsheetCell(getCell(row, portIndex))
-      if (!ip && !port && row.every((cell) => !cell.trim())) {
-        continue
-      }
-      id = getNetworkDeviceId(ip, port)
-    } else if (!id) {
+    if (row.every((cell) => !cell.trim())) {
       continue
     }
+
+    const importedId = restoreSpreadsheetCell(getCell(row, indexes.id))
+    let id = importedId
+    if (hasIpColumn) {
+      const ip = restoreSpreadsheetCell(getCell(row, ipIndex))
+      const port = restoreSpreadsheetCell(getCell(row, portIndex))
+      if (ip || port || !importedId) {
+        id = getNetworkDeviceId(ip, port)
+      }
+    }
+    if (!id) {
+      continue
+    }
+    id = normalizeRemoteDeviceId(id) || id
+
     const device: IDeviceCsvRow = { id }
     for (const key of Object.keys(indexes) as (keyof IDeviceCsvRow)[]) {
       if (key !== 'id' && indexes[key] >= 0) {
         device[key] = restoreSpreadsheetCell(getCell(row, indexes[key]))
       }
     }
-    devices.push(device)
+    const previous = devices.get(id)
+    const merged = {
+      ...previous,
+      ...device,
+    }
+    for (const key of systemFieldKeys) {
+      if (!device[key] && previous?.[key]) {
+        merged[key] = previous[key]
+      }
+    }
+    devices.set(id, merged)
   }
-  return devices
+  return Array.from(devices.values())
 }
 
 function getNetworkDeviceId(ip: string, port: string) {
@@ -91,16 +143,21 @@ export function stringifyDevicesCsv(
   devices: IExportDevice[],
   headers: string[]
 ) {
-  const rows = devices.map((device) => [
-    device.id,
-    device.serialno,
-    device.name,
-    device.metadata.deviceName,
-    device.metadata.remark,
-    device.androidVersion,
-    device.sdkVersion,
-    device.status,
-  ])
+  const rows = devices.map((device) => {
+    const endpoint = parseRemoteDeviceId(device.id)
+    return [
+      device.metadata.deviceName,
+      endpoint?.ip || '',
+      endpoint ? String(endpoint.port) : '',
+      device.metadata.remark,
+      device.id,
+      device.serialno,
+      device.name,
+      device.androidVersion,
+      device.sdkVersion,
+      device.status,
+    ]
+  })
   return `\uFEFF${[headers, ...rows].map(stringifyRow).join('\r\n')}\r\n`
 }
 
@@ -157,6 +214,11 @@ function normalizeHeader(header: string) {
     .trim()
     .toLowerCase()
     .replace(/[\s_-]/g, '')
+}
+
+function findHeaderIndex(headers: string[], aliases: string[]) {
+  const normalizedAliases = aliases.map(normalizeHeader)
+  return headers.findIndex((header) => normalizedAliases.includes(header))
 }
 
 function getCell(row: string[], index: number) {
