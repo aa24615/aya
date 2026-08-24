@@ -33,6 +33,10 @@ export interface IScreenshotBatchResult {
   skipped: number
 }
 
+function clampScreenshotPaneWeight(weight: number) {
+  return Math.max(25, Math.min(50, weight))
+}
+
 class Store extends BaseStore {
   filter = ''
   ip = ''
@@ -40,7 +44,7 @@ class Store extends BaseStore {
   devices: IDevice[] = []
   remoteDevices: IDevice[] = []
   deviceMetadata: Record<string, IDeviceMetadata> = {}
-  screenshotWeight = 40
+  screenshotPaneWeight = 40
   viewMode: DeviceViewMode = 'card'
   device: IDevice | null = null
   screenshot: string | null = null
@@ -50,6 +54,7 @@ class Store extends BaseStore {
   private screenshotRequestVersions = new Map<string, number>()
   private screenshotQueue = new ConcurrencyQueue(3)
   private screenshotBatch: Promise<IScreenshotBatchResult> | null = null
+  private screenshotPaneWeightDirty = false
   constructor() {
     super()
     makeObservable(this, {
@@ -60,7 +65,7 @@ class Store extends BaseStore {
       remoteDevices: observable,
       deviceMetadata: observable,
       filter: observable,
-      screenshotWeight: observable,
+      screenshotPaneWeight: observable,
       viewMode: observable,
       screenshot: observable,
       screenshots: observable,
@@ -73,7 +78,7 @@ class Store extends BaseStore {
       removeRemoteDevice: action,
       setDeviceMetadata: action,
       importDevices: action,
-      setScreenshotWeight: action,
+      setScreenshotPaneWeight: action,
       setViewMode: action,
     })
 
@@ -82,8 +87,8 @@ class Store extends BaseStore {
   }
   async init() {
     const remoteDevices: IDevice[] = await main.getDevicesStore('remoteDevices')
-    const screenshotWeight: number =
-      await main.getDevicesStore('screenshotWeight')
+    const screenshotPaneWeight: number =
+      await main.getDevicesStore('screenshotPaneWeight')
     const deviceMetadata: Record<string, IDeviceMetadata> =
       await main.getDevicesStore('deviceMetadata')
     const viewMode: DeviceViewMode = await main.getDevicesStore('viewMode')
@@ -91,8 +96,14 @@ class Store extends BaseStore {
       if (remoteDevices) {
         this.remoteDevices = remoteDevices
       }
-      if (screenshotWeight) {
-        this.screenshotWeight = screenshotWeight
+      if (
+        !this.screenshotPaneWeightDirty &&
+        typeof screenshotPaneWeight === 'number' &&
+        Number.isFinite(screenshotPaneWeight)
+      ) {
+        this.screenshotPaneWeight = clampScreenshotPaneWeight(
+          screenshotPaneWeight
+        )
       }
       if (deviceMetadata) {
         this.deviceMetadata = deviceMetadata
@@ -337,9 +348,11 @@ class Store extends BaseStore {
   getAllDevices() {
     return concat(this.devices, this.remoteDevices)
   }
-  setScreenshotWeight(weight: number) {
-    this.screenshotWeight = weight
-    main.setDevicesStore('screenshotWeight', weight)
+  setScreenshotPaneWeight(weight: number) {
+    const screenshotPaneWeight = clampScreenshotPaneWeight(weight)
+    this.screenshotPaneWeightDirty = true
+    this.screenshotPaneWeight = screenshotPaneWeight
+    main.setDevicesStore('screenshotPaneWeight', screenshotPaneWeight)
   }
   refreshDeviceScreenshot(
     device: IDevice | null = this.device

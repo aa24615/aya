@@ -18,6 +18,7 @@ export const getDevicesStore = memoize(function () {
     remoteDevices: [],
     deviceMetadata: {},
     viewMode: 'card',
+    screenshotPaneWeight: 40,
   })
 })
 

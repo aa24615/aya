@@ -53,6 +53,10 @@ Open the [AYA-Plus Releases](https://cnb.cool/scrmoa/other/aya/-/releases) page 
 * Device list import and export in CSV format
 * Device table/card views with batch screenshot refresh
 
+Device cards use a fixed-height horizontal layout with complete device
+metadata on the left and the latest thumbnail on the right. Selecting a card
+shows the full screenshot in the resizable pane on the right.
+
 ## Device Metadata and CSV
 
 The device manager keeps the ADB-reported model and adds two editable fields: **Device Name** and **Remark**. Select a device and click **Edit** to update these fields. Metadata is stored locally and is associated with the device serial number when available.

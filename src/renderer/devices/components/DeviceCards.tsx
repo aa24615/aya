@@ -51,23 +51,31 @@ export default observer(function DeviceCards() {
   return (
     <div
       className={Style.cardList}
-      role="listbox"
       onClick={() => store.selectDevice(null)}
     >
       {cards.map(({ device, displayName, remark, online }) => {
         const screenshot = store.screenshots[device.id]
         const selected = store.device?.id === device.id
         const androidVersion = formatAndroidVersion(device)
-        const title = [displayName, device.name, device.id, remark]
-          .filter(Boolean)
-          .join('\n')
+        const model = device.name?.trim() || '—'
+        const serialno = device.serialno?.trim() || '—'
+        const remarkText = remark || '—'
+        const androidVersionText = androidVersion || '—'
+        const title = [
+          `${t('deviceName')}: ${displayName}`,
+          `${t('model')}: ${model}`,
+          `ID: ${device.id}`,
+          `${t('serialno')}: ${serialno}`,
+          `${t('androidVersion')}: ${androidVersionText}`,
+          `${t('remark')}: ${remarkText}`,
+        ].join('\n')
 
         return (
           <button
             key={device.id}
             type="button"
-            role="option"
-            aria-selected={selected}
+            aria-pressed={selected}
+            aria-busy={screenshot?.status === 'loading'}
             className={className(Style.deviceCard, {
               [Style.deviceCardSelected]: selected,
             })}
@@ -85,13 +93,40 @@ export default observer(function DeviceCards() {
               }
             }}
           >
+            <div className={Style.cardBody}>
+              <div className={Style.cardHeader}>
+                <span className={Style.cardDeviceName}>{displayName}</span>
+                <span
+                  className={className(Style.statusTag, {
+                    [Style.statusOnline]: online,
+                    [Style.statusOffline]: !online,
+                  })}
+                >
+                  {online ? t('online') : t('offline')}
+                </span>
+              </div>
+              <div className={Style.cardFields}>
+                <DeviceCardField label={t('model')} value={model} />
+                <DeviceCardField label="ID" value={device.id} monospace />
+                <DeviceCardField
+                  label={t('serialno')}
+                  value={serialno}
+                  monospace
+                />
+                <DeviceCardField
+                  label={t('androidVersion')}
+                  value={androidVersionText}
+                />
+                <DeviceCardField label={t('remark')} value={remarkText} />
+              </div>
+            </div>
             <div className={Style.cardScreenshot}>
               {screenshot?.image ? (
                 <>
                   <img
                     className={Style.cardThumbnail}
                     src={screenshot.image}
-                    alt={`${displayName} ${t('screenshot')}`}
+                    alt=""
                     draggable={false}
                   />
                   <span
@@ -107,42 +142,6 @@ export default observer(function DeviceCards() {
                 online={online}
                 status={screenshot?.status}
               />
-            </div>
-            <div className={Style.cardBody}>
-              <div className={Style.cardHeader}>
-                <span className={Style.cardDeviceName}>{displayName}</span>
-                <span
-                  className={className(Style.statusTag, {
-                    [Style.statusOnline]: online,
-                    [Style.statusOffline]: !online,
-                  })}
-                >
-                  {online ? t('online') : t('offline')}
-                </span>
-              </div>
-              {device.name && device.name !== displayName ? (
-                <div className={Style.cardDetail} title={device.name}>
-                  {device.name}
-                </div>
-              ) : null}
-              <div className={Style.cardDeviceId} title={device.id}>
-                {device.id}
-              </div>
-              {device.serialno ? (
-                <div className={Style.cardDetail} title={device.serialno}>
-                  {t('serialno')}: {device.serialno}
-                </div>
-              ) : null}
-              {androidVersion ? (
-                <div className={Style.cardDetail} title={androidVersion}>
-                  {androidVersion}
-                </div>
-              ) : null}
-              {remark ? (
-                <div className={Style.cardRemark} title={remark}>
-                  {remark}
-                </div>
-              ) : null}
             </div>
           </button>
         )
@@ -197,14 +196,38 @@ function formatAndroidVersion(device: IDevice) {
   }`
 }
 
+function DeviceCardField(props: {
+  label: string
+  value: string
+  monospace?: boolean
+}) {
+  return (
+    <div className={Style.cardField}>
+      <span className={Style.cardFieldLabel}>{props.label}:</span>
+      <span
+        className={className(Style.cardFieldValue, {
+          [Style.cardFieldMonospace]: props.monospace,
+        })}
+        title={props.value}
+      >
+        {props.value}
+      </span>
+    </div>
+  )
+}
+
 function ScreenshotState(props: {
   hasImage: boolean
   online: boolean
   status?: 'loading' | 'success' | 'error'
 }) {
   if (!props.online) {
-    return props.hasImage ? null : (
-      <span className={Style.cardScreenshotState}>
+    return (
+      <span
+        className={className(Style.cardScreenshotState, {
+          [Style.cardScreenshotOverlay]: props.hasImage,
+        })}
+      >
         <span className="icon-phone" aria-hidden="true" />
         {t('offline')}
       </span>
