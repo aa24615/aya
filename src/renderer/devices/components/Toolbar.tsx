@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite'
 import LunaToolbar, {
   LunaToolbarButton,
+  LunaToolbarHtml,
   LunaToolbarInput,
   LunaToolbarSeparator,
   LunaToolbarSpace,
@@ -15,7 +16,7 @@ import store from '../store'
 import { isRemoteDevice, parseRemoteDeviceId } from '../lib/util'
 import some from 'licia/some'
 import CodePairModal from './CodePairModal'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import DeviceEditModal from './DeviceEditModal'
 import { parseDevicesCsv, stringifyDevicesCsv } from '../lib/csv'
 import map from 'licia/map'
@@ -23,6 +24,7 @@ import { IDeviceCsvRow } from 'common/types'
 import { isDeviceOnline } from 'common/device'
 
 export default observer(function Toolbar() {
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [codePairModalVisible, setCodePairModalVisible] = useState(false)
   const [deviceEditModalVisible, setDeviceEditModalVisible] = useState(false)
   const { device, remoteDevices } = store
@@ -36,6 +38,10 @@ export default observer(function Toolbar() {
   const hasOnlineDevices = some(store.getAllDevices(), (device) =>
     isDeviceOnline(device)
   )
+  const clearFilter = () => {
+    store.setFilter('')
+    searchInputRef.current?.focus()
+  }
 
   return (
     <>
@@ -192,12 +198,41 @@ export default observer(function Toolbar() {
           }}
         />
         <LunaToolbarSeparator />
-        <LunaToolbarInput
-          keyName="filter"
-          value={store.filter}
-          placeholder={t('filter')}
-          onChange={(val) => store.setFilter(val)}
-        />
+        <LunaToolbarHtml className={Style.search}>
+          <input
+            id="device-manager-search"
+            ref={searchInputRef}
+            type="search"
+            value={store.filter}
+            placeholder={t('searchDeviceShort')}
+            title={t('searchDevice')}
+            aria-label={t('searchDevice')}
+            aria-controls="device-manager-list"
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => store.setFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Escape' &&
+                !event.nativeEvent.isComposing &&
+                store.filter
+              ) {
+                event.preventDefault()
+                clearFilter()
+              }
+            }}
+          />
+          <button
+            type="button"
+            className={Style.searchClear}
+            title={t('clear')}
+            aria-label={t('clear')}
+            disabled={!store.filter}
+            onClick={clearFilter}
+          >
+            <span className="icon-clear" aria-hidden="true" />
+          </button>
+        </LunaToolbarHtml>
         <LunaToolbarSeparator />
         <ToolbarIcon
           icon="grid"

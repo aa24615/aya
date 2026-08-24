@@ -5,13 +5,17 @@ import concat from 'licia/concat'
 import className from 'licia/className'
 import { observer } from 'mobx-react-lite'
 import store from '../store'
+import {
+  getDeviceSearchTokens,
+  matchesDeviceSearch,
+} from '../lib/search'
 import Style from './DeviceManager.module.scss'
 
 interface IDeviceCard {
   device: IDevice
   displayName: string
   remark: string
-  searchableText: string
+  matchesSearch: boolean
   online: boolean
   originalIndex: number
 }
@@ -21,10 +25,12 @@ interface IDeviceCard {
  * React text nodes so imported names and remarks cannot inject markup.
  */
 export default observer(function DeviceCards() {
-  const filter = store.filter.trim().toLocaleLowerCase()
+  const searchTokens = getDeviceSearchTokens(store.filter)
   const cards = concat(store.devices, store.remoteDevices)
-    .map((device, originalIndex) => createDeviceCard(device, originalIndex))
-    .filter((card) => !filter || card.searchableText.includes(filter))
+    .map((device, originalIndex) =>
+      createDeviceCard(device, originalIndex, searchTokens)
+    )
+    .filter((card) => card.matchesSearch)
     .sort((a, b) => {
       if (a.online !== b.online) {
         return a.online ? -1 : 1
@@ -34,7 +40,7 @@ export default observer(function DeviceCards() {
 
   if (cards.length === 0) {
     return (
-      <div className={Style.cardEmpty}>
+      <div className={Style.cardEmpty} role="status">
         <span
           className={className('icon-phone', Style.cardEmptyIcon)}
           aria-hidden="true"
@@ -152,7 +158,8 @@ export default observer(function DeviceCards() {
 
 function createDeviceCard(
   device: IDevice,
-  originalIndex: number
+  originalIndex: number,
+  searchTokens: readonly string[]
 ): IDeviceCard {
   const metadata = store.getDeviceMetadata(device)
   const online = isDeviceOnline(device)
@@ -160,28 +167,12 @@ function createDeviceCard(
     ...device,
     deviceName: metadata.deviceName,
   })
-  const androidVersion = formatAndroidVersion(device)
-  const status = online ? t('online') : t('offline')
-  const searchableText = [
-    displayName,
-    metadata.deviceName,
-    device.name,
-    device.id,
-    device.serialno,
-    metadata.remark,
-    androidVersion,
-    status,
-    online ? 'online' : 'offline',
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .toLocaleLowerCase()
 
   return {
     device,
     displayName,
     remark: metadata.remark,
-    searchableText,
+    matchesSearch: matchesDeviceSearch(device, metadata, searchTokens),
     online,
     originalIndex,
   }

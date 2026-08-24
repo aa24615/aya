@@ -160,6 +160,7 @@
   "deviceManager": "設備管理員",
   "deviceList": "設備清單",
   "searchDevice": "依設備名稱或 IP 搜尋",
+  "searchDeviceShort": "設備名稱 / IP",
   "deviceSearchResult": "顯示 {{count}} / {{total}} 台設備",
   "resizeDeviceList": "拖動調整設備清單寬度，雙擊恢復預設寬度",
   "port": "端口",

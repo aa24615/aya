@@ -66,6 +66,11 @@ Device cards use a fixed-height horizontal layout with complete device
 metadata on the left and the latest thumbnail on the right. Selecting a card
 shows the full screenshot in the resizable pane on the right.
 
+The device-manager search works in both card and table views. It supports
+device names, models, IP/device IDs, serial numbers, remarks, Android versions,
+and online status. Multiple keywords may be combined, for example a device
+name plus part of its IP address.
+
 ## Device Metadata and CSV
 
 The device manager keeps the ADB-reported model and adds two editable fields: **Device Name** and **Remark**. Select a device and click **Edit** to update these fields. Metadata is stored locally and is associated with the device serial number when available.

@@ -124,6 +124,7 @@
   "deviceManager": "设备管理器",
   "deviceList": "设备列表",
   "searchDevice": "按设备名称或 IP 搜索",
+  "searchDeviceShort": "设备名称 / IP",
   "deviceSearchResult": "显示 {{count}} / {{total}} 台设备",
   "resizeDeviceList": "拖动调整设备列表宽度，双击恢复默认宽度",
   "port": "端口",
