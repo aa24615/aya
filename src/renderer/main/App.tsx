@@ -9,58 +9,70 @@ import Webview from './components/webview/Webview'
 import Application from './components/application/Application'
 import File from './components/file/File'
 import Layout from './components/layout/Layout'
+import Device from './components/toolbar/Device'
 import Style from './App.module.scss'
 import { useState, PropsWithChildren, FC } from 'react'
 import store from './store'
 import { observer } from 'mobx-react-lite'
 import { useCheckUpdate } from 'share/renderer/lib/hooks'
+import { t } from 'common/util'
 
 export default observer(function App() {
   useCheckUpdate('https://aya.liriliri.io')
 
   return (
-    <>
-      <Toolbar />
-      {store.ready && (
-        <div className={Style.workspace}>
-          <div
-            className={Style.panels}
-            key={store.device ? store.device.id : ''}
-          >
-            <Panel panel="overview">
-              <Overview />
-            </Panel>
-            <Panel panel="application">
-              <Application />
-            </Panel>
-            <Panel panel="screenshot">
-              <Screenshot />
-            </Panel>
-            <Panel panel="logcat">
-              <Logcat />
-            </Panel>
-            <Panel panel="shell">
-              <Shell />
-            </Panel>
-            <Panel panel="process">
-              <Process />
-            </Panel>
-            <Panel panel="performance">
-              <Performance />
-            </Panel>
-            <Panel panel="webview">
-              <Webview />
-            </Panel>
-            <Panel panel="file">
-              <File />
-            </Panel>
-            <Panel panel="layout">
-              <Layout />
-            </Panel>
+    <div className={Style.app}>
+      <Device />
+      <div className={Style.main}>
+        <Toolbar />
+        {store.ready && (
+          <div className={Style.workspace}>
+            {store.device ? (
+              <div className={Style.panels} key={store.device.id}>
+                <Panel panel="overview">
+                  <Overview />
+                </Panel>
+                <Panel panel="application">
+                  <Application />
+                </Panel>
+                <Panel panel="screenshot">
+                  <Screenshot />
+                </Panel>
+                <Panel panel="logcat">
+                  <Logcat />
+                </Panel>
+                <Panel panel="shell">
+                  <Shell />
+                </Panel>
+                <Panel panel="process">
+                  <Process />
+                </Panel>
+                <Panel panel="performance">
+                  <Performance />
+                </Panel>
+                <Panel panel="webview">
+                  <Webview />
+                </Panel>
+                <Panel panel="file">
+                  <File />
+                </Panel>
+                <Panel panel="layout">
+                  <Layout />
+                </Panel>
+              </div>
+            ) : (
+              <div className={Style.empty}>
+                <span
+                  className={`icon-phone ${Style.emptyIcon}`}
+                  aria-hidden="true"
+                />
+                <div>{t('deviceNotConnected')}</div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </>
+        )}
+      </div>
+    </div>
   )
 })
 

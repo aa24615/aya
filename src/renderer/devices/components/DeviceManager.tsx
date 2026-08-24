@@ -8,6 +8,7 @@ import store from '../store'
 import { useRef } from 'react'
 import DataGrid from 'luna-data-grid'
 import { useResizeSensor } from 'share/renderer/lib/hooks'
+import { isDeviceOnline } from 'common/device'
 
 export default observer(function DeviceManager() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -28,7 +29,7 @@ export default observer(function DeviceManager() {
       androidVersion: device.androidVersion
         ? `Android ${device.androidVersion}${device.sdkVersion ? ` (API ${device.sdkVersion})` : ''}`
         : '',
-      status: createStatusTag(device.type !== 'offline'),
+      status: createStatusTag(isDeviceOnline(device)),
       type: device.type,
     }
   })
@@ -44,7 +45,10 @@ export default observer(function DeviceManager() {
         selectable={true}
         filter={store.filter}
         onDoubleClick={(e, node) => {
-          if (node.data.type !== 'offline') {
+          if (
+            node.data.type === 'device' ||
+            node.data.type === 'emulator'
+          ) {
             main.sendToWindow('main', 'selectDevice', node.data.id)
           }
         }}

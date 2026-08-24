@@ -93,6 +93,9 @@ export default observer(function Shell() {
     return {
       title: `${title} (${truncate(command, 95 - title.length)})`,
       handler: () => {
+        if (!selectedShell.sessionId) {
+          return
+        }
         main.writeShell(selectedShell.sessionId, command)
         setTimeout(() => {
           if (selectedShell.terminal) {

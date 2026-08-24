@@ -9,6 +9,7 @@ import { isRemoteDevice } from './lib/util'
 import dataUrl from 'licia/dataUrl'
 import isStr from 'licia/isStr'
 import find from 'licia/find'
+import { getDeviceMetadataKey, isDeviceOnline } from 'common/device'
 
 class Store extends BaseStore {
   filter = ''
@@ -20,6 +21,7 @@ class Store extends BaseStore {
   screenshotWeight = 40
   device: IDevice | null = null
   screenshot: string | null = null
+  private screenshotRequest = 0
   constructor() {
     super()
     makeObservable(this, {
@@ -88,9 +90,16 @@ class Store extends BaseStore {
     }
     this.device = device
 
+    const screenshotRequest = ++this.screenshotRequest
     this.screenshot = null
-    if (device && device.type !== 'offline') {
+    if (device && isDeviceOnline(device)) {
       main.screencap(device.id).then((data) => {
+        if (
+          screenshotRequest !== this.screenshotRequest ||
+          this.device?.id !== device.id
+        ) {
+          return
+        }
         const url = dataUrl.stringify(data, 'image/png')
         runInAction(() => {
           this.screenshot = url
@@ -122,7 +131,7 @@ class Store extends BaseStore {
       if (!device.serialno) {
         return
       }
-      const idKey = this.getDeviceMetadataKey({
+      const idKey = getDeviceMetadataKey({
         id: device.id,
         serialno: '',
       })
@@ -130,7 +139,7 @@ class Store extends BaseStore {
       if (!importedMetadata) {
         return
       }
-      const serialKey = this.getDeviceMetadataKey(device)
+      const serialKey = getDeviceMetadataKey(device)
       deviceMetadata[serialKey] = {
         ...(deviceMetadata[serialKey] || {
           deviceName: '',
@@ -152,11 +161,11 @@ class Store extends BaseStore {
 
     if (this.device) {
       const id = this.device.id
-      each(concat(remoteDevices, this.devices), (device) => {
-        if (device.id === id) {
-          this.selectDevice(device)
-        }
-      })
+      const device = find(
+        concat(remoteDevices, this.devices),
+        (device) => device.id === id
+      )
+      this.selectDevice(device || null)
     }
   }
   removeRemoteDevice(id: string) {
@@ -164,9 +173,12 @@ class Store extends BaseStore {
     this.remoteDevices = filter(this.remoteDevices, (device) => {
       return device.id !== id
     })
+    if (this.device?.id === id) {
+      this.selectDevice(null)
+    }
     main.setDevicesStore('remoteDevices', toJS(this.remoteDevices))
     if (device) {
-      const key = this.getDeviceMetadataKey(device)
+      const key = getDeviceMetadataKey(device)
       const deviceMetadata = { ...toJS(this.deviceMetadata) }
       delete deviceMetadata[key]
       this.deviceMetadata = deviceMetadata
@@ -175,14 +187,14 @@ class Store extends BaseStore {
   }
   getDeviceMetadata(device: Pick<IDevice, 'id' | 'serialno'>) {
     return (
-      this.deviceMetadata[this.getDeviceMetadataKey(device)] || {
+      this.deviceMetadata[getDeviceMetadataKey(device)] || {
         deviceName: '',
         remark: '',
       }
     )
   }
   setDeviceMetadata(device: IDevice, deviceName: string, remark: string) {
-    const key = this.getDeviceMetadataKey(device)
+    const key = getDeviceMetadataKey(device)
     this.deviceMetadata = {
       ...toJS(this.deviceMetadata),
       [key]: {
@@ -234,7 +246,7 @@ class Store extends BaseStore {
         id: row.id,
         serialno: row.serialno || device?.serialno || '',
       }
-      const key = this.getDeviceMetadataKey(metadataDevice)
+      const key = getDeviceMetadataKey(metadataDevice)
       const current = deviceMetadata[key] || {
         deviceName: '',
         remark: '',
@@ -273,9 +285,6 @@ class Store extends BaseStore {
           break
       }
     })
-  }
-  private getDeviceMetadataKey(device: Pick<IDevice, 'id' | 'serialno'>) {
-    return device.serialno ? `serial:${device.serialno}` : `id:${device.id}`
   }
 }
 

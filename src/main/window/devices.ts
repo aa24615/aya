@@ -40,6 +40,11 @@ const initIpc = once(() => {
     ((name, val) => store.set(name, val))
   ))
   handleEvent('getDevicesStore', <IpcGetStore>((name) => store.get(name)))
+  store.on('change', (name) => {
+    if (name === 'deviceMetadata') {
+      window.sendTo('main', 'refreshDevices')
+    }
+  })
   handleEvent('importDevicesCsv', <IpcImportDevicesCsv>(async () => {
     if (!win) {
       return null

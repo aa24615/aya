@@ -33,10 +33,13 @@ export default observer(function Logcat() {
   const logcatRef = useRef<Logcat>(null)
   const entriesRef = useRef<any[]>([])
   const logcatIdRef = useRef('')
+  const disposedRef = useRef(false)
+  const logcatRequestRef = useRef(0)
 
   const { device } = store
 
   useEffect(() => {
+    disposedRef.current = false
     function onLogcatEntry(id, entry) {
       if (logcatIdRef.current !== id) {
         return
@@ -47,19 +50,31 @@ export default observer(function Logcat() {
       }
     }
     const offLogcatEntry = main.on('logcatEntry', onLogcatEntry)
-    if (device) {
-      main.openLogcat(device.id).then((id) => {
-        logcatIdRef.current = id
-      })
-    }
+    openLogcatSession()
 
     return () => {
+      disposedRef.current = true
+      logcatRequestRef.current += 1
       offLogcatEntry()
       if (logcatIdRef.current) {
         main.closeLogcat(logcatIdRef.current)
       }
     }
   }, [])
+
+  function openLogcatSession() {
+    if (!device) {
+      return
+    }
+    const request = ++logcatRequestRef.current
+    main.openLogcat(device.id).then((id) => {
+      if (disposedRef.current || request !== logcatRequestRef.current) {
+        main.closeLogcat(id)
+        return
+      }
+      logcatIdRef.current = id
+    })
+  }
 
   if (store.panel !== 'logcat') {
     if (!paused && logcatIdRef.current) {
@@ -211,13 +226,11 @@ export default observer(function Logcat() {
           onClick={() => {
             if (logcatIdRef.current) {
               main.closeLogcat(logcatIdRef.current)
+              logcatIdRef.current = ''
               clear()
             }
-            if (device) {
-              main.openLogcat(device.id).then((id) => {
-                logcatIdRef.current = id
-              })
-            }
+            logcatRequestRef.current += 1
+            openLogcatSession()
           }}
           disabled={!device}
         />
@@ -225,10 +238,14 @@ export default observer(function Logcat() {
           icon={paused ? 'play' : 'pause'}
           title={t(paused ? 'resume' : 'pause')}
           onClick={() => {
+            const logcatId = logcatIdRef.current
+            if (!logcatId) {
+              return
+            }
             if (paused) {
-              main.resumeLogcat(logcatIdRef.current)
+              main.resumeLogcat(logcatId)
             } else {
-              main.pauseLogcat(logcatIdRef.current)
+              main.pauseLogcat(logcatId)
             }
             setPaused(!paused)
           }}

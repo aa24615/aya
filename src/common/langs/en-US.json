@@ -121,6 +121,7 @@
   "rebootRecovery": "Reboot to Recovery",
   "rebootBootloader": "Reboot to Bootloader",
   "deviceManager": "Device Manager",
+  "deviceList": "Device List",
   "port": "Port",
   "connect": "Connect",
   "disconnect": "Disconnect",

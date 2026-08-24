@@ -157,6 +157,7 @@
   "rebootRecovery": "重啟至 Recovery",
   "rebootBootloader": "重啟至 Bootloader",
   "deviceManager": "設備管理員",
+  "deviceList": "設備清單",
   "port": "端口",
   "connect": "連接",
   "disconnect": "斷開連接",

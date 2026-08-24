@@ -16,7 +16,7 @@ import toNum from 'licia/toNum'
 import contain from 'licia/contain'
 import * as window from 'share/main/lib/window'
 import fs from 'fs-extra'
-import { getSettingsStore } from './store'
+import { getDevicesStore, getSettingsStore } from './store'
 import isWindows from 'licia/isWindows'
 import isEmpty from 'licia/isEmpty'
 import * as base from './adb/base'
@@ -40,8 +40,9 @@ import {
   IpcInputKey,
   IpcPairDevice,
   IpcScreencap,
-  IDevice,
+  IDeviceMetadata,
 } from 'common/types'
+import { getDeviceMetadataKey } from 'common/device'
 import path from 'node:path'
 import childProcess from 'node:child_process'
 import isMac from 'licia/isMac'
@@ -59,6 +60,8 @@ const getDevices: IpcGetDevices = async function () {
     devices,
     (device: Device) => device.type === 'emulator' || device.type === 'device'
   )
+  const deviceMetadata = (getDevicesStore().get('deviceMetadata') ||
+    {}) as Record<string, IDeviceMetadata>
 
   const resolvedDevices = await Promise.all(
     map(devices, async (device: Device) => {
@@ -71,11 +74,18 @@ const getDevices: IpcGetDevices = async function () {
           name = marketName
         }
 
+        const serialno = properties['ro.serialno'] || ''
+        const metadata = deviceMetadata[
+          getDeviceMetadataKey({ id: device.id, serialno })
+        ]
+
         return {
           id: device.id,
           type: device.type,
-          serialno: properties['ro.serialno'] || '',
+          serialno,
           name,
+          deviceName: metadata?.deviceName || '',
+          remark: metadata?.remark || '',
           androidVersion: properties['ro.build.version.release'],
           sdkVersion: properties['ro.build.version.sdk'],
         }
@@ -85,7 +95,12 @@ const getDevices: IpcGetDevices = async function () {
       }
     })
   )
-  return resolvedDevices.filter((device): device is IDevice => device !== null)
+  return resolvedDevices.filter(
+    (
+      device
+    ): device is Exclude<(typeof resolvedDevices)[number], null> =>
+      device !== null
+  )
 }
 
 async function getOverview(deviceId: string) {

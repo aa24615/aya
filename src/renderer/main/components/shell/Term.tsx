@@ -32,10 +32,13 @@ export default observer(function Term(props: ITermProps) {
   const termRef = useRef<Terminal>(null)
   const fitAddonRef = useRef<FitAddon>(null)
   const sessionIdRef = useRef('')
+  const disposedRef = useRef(false)
+  const shellRequestRef = useRef(0)
 
   const { device } = store
 
   useEffect(() => {
+    disposedRef.current = false
     const term = new Terminal({
       allowProposedApi: true,
       fontSize: 14,
@@ -74,18 +77,21 @@ export default observer(function Term(props: ITermProps) {
     }
     const offShellData = main.on('shellData', onShellData)
 
-    if (device) {
-      main.createShell(device.id).then((id) => {
-        setSessionId(id)
-        term.onData((data) => main.writeShell(sessionIdRef.current, data))
-        term.onResize((size) => {
-          main.resizeShell(sessionIdRef.current, size.cols, size.rows)
-        })
-        fit()
-      })
-    }
+    term.onData((data) => {
+      if (sessionIdRef.current) {
+        main.writeShell(sessionIdRef.current, data)
+      }
+    })
+    term.onResize((size) => {
+      if (sessionIdRef.current) {
+        main.resizeShell(sessionIdRef.current, size.cols, size.rows)
+      }
+    })
+    createShellSession(fit)
 
     return () => {
+      disposedRef.current = true
+      shellRequestRef.current += 1
       offShellData()
       if (sessionIdRef.current) {
         main.killShell(sessionIdRef.current)
@@ -118,6 +124,21 @@ export default observer(function Term(props: ITermProps) {
     props.onSessionIdChange(id)
   }
 
+  function createShellSession(onCreated?: () => void) {
+    if (!device) {
+      return
+    }
+    const request = ++shellRequestRef.current
+    main.createShell(device.id).then((id) => {
+      if (disposedRef.current || request !== shellRequestRef.current) {
+        main.killShell(id)
+        return
+      }
+      setSessionId(id)
+      onCreated?.()
+    })
+  }
+
   const onContextMenu = (e: React.MouseEvent) => {
     if (!device) {
       return
@@ -138,8 +159,9 @@ export default observer(function Term(props: ITermProps) {
         label: t('paste'),
         click: async () => {
           const text = await navigator.clipboard.readText()
-          if (text) {
-            main.writeShell(sessionIdRef.current, text)
+          const sessionId = sessionIdRef.current
+          if (text && sessionId) {
+            main.writeShell(sessionId, text)
           }
         },
       },
@@ -157,14 +179,11 @@ export default observer(function Term(props: ITermProps) {
         click() {
           if (sessionIdRef.current) {
             main.killShell(sessionIdRef.current)
+            setSessionId('')
           }
           term.reset()
-          if (device) {
-            main.createShell(device.id).then((id) => {
-              setSessionId(id)
-            })
-            term.focus()
-          }
+          createShellSession()
+          term.focus()
         },
       },
       {

@@ -24,6 +24,7 @@ class Store extends BaseStore {
   file = new File()
   layout = new Layout()
   ready = false
+  private refreshRequest = 0
   constructor() {
     super()
 
@@ -41,15 +42,17 @@ class Store extends BaseStore {
     this.init()
   }
   selectDevice = (device: string | IDevice | null) => {
+    const currentDeviceId = this.device?.id || null
     if (isStr(device)) {
       const d = find(this.devices, ({ id }) => id === device)
-      if (d) {
-        this.device = d
-      }
+      this.device = d || null
     } else {
       this.device = device
     }
 
+    if (currentDeviceId === (this.device?.id || null)) {
+      return
+    }
     setMainStore('device', this.device)
   }
   selectPanel(panel: string) {
@@ -76,7 +79,11 @@ class Store extends BaseStore {
     }
   }
   refreshDevices = async () => {
+    const request = ++this.refreshRequest
     const devices = await main.getDevices()
+    if (request !== this.refreshRequest) {
+      return
+    }
     runInAction(() => {
       this.devices = devices
       setMemStore('devices', devices)
@@ -88,6 +95,10 @@ class Store extends BaseStore {
         const device = find(devices, ({ id }) => id === this.device!.id)
         if (!device) {
           this.selectDevice(devices[0])
+        } else {
+          runInAction(() => {
+            this.device = device
+          })
         }
       }
     } else {
