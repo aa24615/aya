@@ -1,5 +1,6 @@
 import {
   IpcClearPackage,
+  IpcCaptureDeviceScreenshot,
   IpcCloseLogcat,
   IpcConnectDevice,
   IpcCreateDir,
@@ -12,6 +13,7 @@ import {
   IpcEnablePackage,
   IpcForward,
   IpcGetAvds,
+  IpcGetCachedDeviceScreenshot,
   IpcGetDevices,
   IpcGetFileUrl,
   IpcGetFps,
@@ -84,6 +86,12 @@ export default Object.assign(mainObj, {
   resizeShell: invoke<IpcResizeShell>('resizeShell'),
   killShell: invoke<IpcKillShell>('killShell'),
   screencap: invoke<IpcScreencap>('screencap'),
+  getCachedDeviceScreenshot: invoke<IpcGetCachedDeviceScreenshot>(
+    'getCachedDeviceScreenshot'
+  ),
+  captureDeviceScreenshot: invoke<IpcCaptureDeviceScreenshot>(
+    'captureDeviceScreenshot'
+  ),
   openLogcat: invoke<IpcOpenLogcat>('openLogcat'),
   closeLogcat: invoke<IpcCloseLogcat>('closeLogcat'),
   pauseLogcat: invoke<IpcPauseLogcat>('pauseLogcat'),

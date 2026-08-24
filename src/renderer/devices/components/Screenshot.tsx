@@ -46,6 +46,16 @@ export default observer(function Screenshot() {
 
   return (
     <div className={Style.container} ref={containerRef}>
+      <button
+        type="button"
+        className={Style.refresh}
+        title={t('recapture')}
+        aria-label={t('recapture')}
+        disabled={!device || !online || status === 'loading'}
+        onClick={() => store.refreshDeviceScreenshot(device)}
+      >
+        <span className="icon-refresh" aria-hidden="true" />
+      </button>
       {image && <LunaImageViewer image={image} />}
       {state && (
         <div

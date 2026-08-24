@@ -127,6 +127,21 @@ export type IpcResizeShell = (
 ) => void
 export type IpcKillShell = (sessionId: string) => void
 export type IpcScreencap = (deviceId: string) => Promise<string>
+export interface IDeviceScreenshotCache {
+  cacheKey: string
+  data: string
+  updatedAt: number
+}
+export interface IDeviceScreenshotCacheUpdate {
+  cacheKey: string
+  updatedAt: number
+}
+export type IpcGetCachedDeviceScreenshot = (
+  deviceId: string
+) => Promise<IDeviceScreenshotCache | null>
+export type IpcCaptureDeviceScreenshot = (
+  deviceId: string
+) => Promise<IDeviceScreenshotCache>
 export type IpcOpenLogcat = (deviceId: string) => Promise<string>
 export type IpcCloseLogcat = (logcatId: string) => Promise<void>
 export type IpcPauseLogcat = IpcCloseLogcat

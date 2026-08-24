@@ -34,9 +34,9 @@ export class ConcurrencyQueue {
     this.concurrency = Math.max(1, Math.floor(concurrency))
   }
 
-  run<T>(task: () => Promise<T>): Promise<T> {
+  run<T>(task: () => Promise<T>, priority = false): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      this.pendingTasks.push(() => {
+      const pendingTask = () => {
         this.activeCount += 1
         Promise.resolve()
           .then(task)
@@ -50,7 +50,12 @@ export class ConcurrencyQueue {
               this.completeTask()
             }
           )
-      })
+      }
+      if (priority) {
+        this.pendingTasks.unshift(pendingTask)
+      } else {
+        this.pendingTasks.push(pendingTask)
+      }
       this.startTasks()
     })
   }

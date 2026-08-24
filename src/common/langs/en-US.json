@@ -218,7 +218,7 @@
   "screenshotFailed": "Failed to capture screenshot",
   "updatingScreenshots": "Updating screenshots...",
   "noMatchingDevices": "No matching devices",
-  "latestScreenshot": "Latest Screenshot",
+  "cachedScreenshot": "Cached screenshot",
   "importCsv": "Import CSV",
   "exportCsv": "Export CSV",
   "devicesImported": "Imported {{count}} devices",

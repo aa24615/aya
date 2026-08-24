@@ -139,7 +139,7 @@ export default observer(function DeviceCards() {
                     className={Style.cardScreenshotCaption}
                     title={new Date(screenshot.updatedAt).toLocaleString()}
                   >
-                    {t('latestScreenshot')}
+                    {t('cachedScreenshot')}
                   </span>
                 </>
               ) : null}

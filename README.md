@@ -69,6 +69,23 @@ Device cards use a fixed-height horizontal layout with complete device
 metadata on the left and the latest thumbnail on the right. Selecting a card
 shows the full screenshot in the resizable pane on the right.
 
+AYA-Plus persistently caches the last successful screenshot for every device
+and restores it after the app restarts. Wireless ADB screenshots are named by
+IP, such as `10.0.0.8.png`; a changed port still overwrites the same file. USB
+and emulator devices use a filename-safe encoded device ID. Only one PNG is
+kept for each device, and a failed capture never replaces the previous cache.
+
+Opening the screenshot page, selecting a card, or switching devices only reads
+the local cache and does not capture a new image. Use the recapture button in
+the main screenshot page or device manager for one device, or use the batch
+button for all online devices. While the app is running, it attempts one
+background refresh round per minute with at most three captures running at the
+same time; a round is skipped if the previous round is still running.
+
+Cached PNG files are stored under `data/screenshots` in the AYA-compatible user
+data directory. Screenshots may contain sensitive information; quit the app
+before deleting this directory if the cache needs to be cleared.
+
 The device-manager search works in both card and table views. It supports
 device names, models, IP/device IDs, serial numbers, remarks, Android versions,
 and online status. Multiple keywords may be combined, for example a device

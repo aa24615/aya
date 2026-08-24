@@ -1,6 +1,12 @@
 import { action, makeObservable, observable, runInAction, toJS } from 'mobx'
 import BaseStore from 'share/renderer/store/BaseStore'
-import { IDevice, IDeviceCsvRow, IDeviceMetadata } from 'common/types'
+import {
+  IDevice,
+  IDeviceCsvRow,
+  IDeviceMetadata,
+  IDeviceScreenshotCache,
+  IDeviceScreenshotCacheUpdate,
+} from 'common/types'
 import each from 'licia/each'
 import filter from 'licia/filter'
 import concat from 'licia/concat'
@@ -9,7 +15,11 @@ import { isRemoteDevice } from './lib/util'
 import dataUrl from 'licia/dataUrl'
 import isStr from 'licia/isStr'
 import find from 'licia/find'
-import { getDeviceMetadataKey, isDeviceOnline } from 'common/device'
+import {
+  getDeviceMetadataKey,
+  getDeviceScreenshotCacheKey,
+  isDeviceOnline,
+} from 'common/device'
 import { ConcurrencyQueue, mapWithConcurrency } from './lib/concurrency'
 import { createScreenshotThumbnail } from './lib/screenshot'
 
@@ -53,7 +63,13 @@ class Store extends BaseStore {
   private screenshotTasks = new Map<string, Promise<IScreenshotResult>>()
   private screenshotRequestVersions = new Map<string, number>()
   private screenshotQueue = new ConcurrencyQueue(3)
+  private screenshotCacheQueue = new ConcurrencyQueue(3)
   private screenshotBatch: Promise<IScreenshotBatchResult> | null = null
+  private screenshotCacheLoads = new Map<
+    string,
+    Promise<IDeviceScreenshotCache | null>
+  >()
+  private initializedScreenshotCaches = new Set<string>()
   private screenshotPaneWeightDirty = false
   constructor() {
     super()
@@ -114,7 +130,7 @@ class Store extends BaseStore {
     })
 
     const devices: IDevice[] = await main.getMemStore('devices')
-    this.updateDevices(devices)
+    this.updateDevices(devices || [])
   }
   setIp(ip: string) {
     this.ip = ip
@@ -145,8 +161,8 @@ class Store extends BaseStore {
     }
     this.device = device
     this.screenshot = device ? this.screenshots[device.id]?.image || null : null
-    if (device && isDeviceOnline(device)) {
-      void this.refreshDeviceScreenshot(device)
+    if (device) {
+      void this.loadCachedScreenshot(device, true, true)
     }
   }
   updateDevices(devices: IDevice[]) {
@@ -229,6 +245,7 @@ class Store extends BaseStore {
     Object.keys(screenshots).forEach((id) => {
       if (!deviceIds.has(id)) {
         delete screenshots[id]
+        this.initializedScreenshotCaches.delete(id)
         this.invalidateScreenshotRequest(id)
         screenshotsChanged = true
       }
@@ -236,6 +253,7 @@ class Store extends BaseStore {
     if (screenshotsChanged) {
       this.screenshots = screenshots
     }
+    this.initializeCachedScreenshots(this.getAllDevices())
   }
   removeRemoteDevice(id: string) {
     const device = find(this.remoteDevices, (device) => device.id === id)
@@ -250,6 +268,7 @@ class Store extends BaseStore {
       delete screenshots[id]
       this.screenshots = screenshots
     }
+    this.initializedScreenshotCaches.delete(id)
     this.invalidateScreenshotRequest(id)
     main.setDevicesStore('remoteDevices', toJS(this.remoteDevices))
     if (device) {
@@ -344,6 +363,7 @@ class Store extends BaseStore {
     }
     main.setDevicesStore('remoteDevices', remoteDevices)
     main.setDevicesStore('deviceMetadata', deviceMetadata)
+    this.initializeCachedScreenshots(this.getAllDevices())
   }
   getAllDevices() {
     return concat(this.devices, this.remoteDevices)
@@ -464,8 +484,8 @@ class Store extends BaseStore {
     requestVersion: number
   ): Promise<IScreenshotResult> {
     try {
-      const data = await main.screencap(device.id)
-      const fullImage = dataUrl.stringify(data, 'image/png')
+      const cachedScreenshot = await main.captureDeviceScreenshot(device.id)
+      const fullImage = dataUrl.stringify(cachedScreenshot.data, 'image/png')
       let thumbnail = fullImage
       try {
         thumbnail = await createScreenshotThumbnail(fullImage)
@@ -495,7 +515,7 @@ class Store extends BaseStore {
           [device.id]: {
             image: thumbnail,
             status: 'success',
-            updatedAt: Date.now(),
+            updatedAt: cachedScreenshot.updatedAt,
           },
         }
         if (this.device?.id === device.id) {
@@ -521,12 +541,16 @@ class Store extends BaseStore {
       }
 
       runInAction(() => {
+        const currentScreenshot = this.screenshots[device.id]
+        const fallback = currentScreenshot?.image
+          ? currentScreenshot
+          : previous
         this.screenshots = {
           ...this.screenshots,
           [device.id]: {
-            ...previous,
+            ...fallback,
             status: 'error',
-            updatedAt: previous?.updatedAt || 0,
+            updatedAt: fallback?.updatedAt || 0,
           },
         }
       })
@@ -535,8 +559,16 @@ class Store extends BaseStore {
   }
   private restoreScreenshot(id: string, previous?: IDeviceScreenshot) {
     const screenshots = { ...this.screenshots }
-    if (previous) {
-      screenshots[id] = previous
+    const current = screenshots[id]
+    const fallback =
+      current?.image && current.updatedAt >= (previous?.updatedAt || 0)
+        ? current
+        : previous
+    if (fallback) {
+      screenshots[id] = {
+        ...fallback,
+        status: fallback.image ? 'success' : fallback.status,
+      }
     } else {
       delete screenshots[id]
     }
@@ -562,6 +594,86 @@ class Store extends BaseStore {
       this.screenshots = screenshots
     }
   }
+  private initializeCachedScreenshots(devices: IDevice[]) {
+    each(devices, (device) => {
+      if (this.initializedScreenshotCaches.has(device.id)) {
+        return
+      }
+      this.initializedScreenshotCaches.add(device.id)
+      void this.loadCachedScreenshot(device, false)
+    })
+  }
+  private readCachedScreenshot(deviceId: string, force = false) {
+    const runningTask = this.screenshotCacheLoads.get(deviceId)
+    if (runningTask && !force) {
+      return runningTask
+    }
+    const task = main.getCachedDeviceScreenshot(deviceId)
+    this.screenshotCacheLoads.set(deviceId, task)
+    const cleanup = () => {
+      if (this.screenshotCacheLoads.get(deviceId) === task) {
+        this.screenshotCacheLoads.delete(deviceId)
+      }
+    }
+    void task.then(cleanup, cleanup)
+    return task
+  }
+  private async loadCachedScreenshot(
+    device: IDevice,
+    includeFullImage: boolean,
+    force = false
+  ) {
+    return this.screenshotCacheQueue.run(
+      () => this.loadCachedScreenshotNow(device, includeFullImage, force),
+      includeFullImage || force
+    )
+  }
+  private async loadCachedScreenshotNow(
+    device: IDevice,
+    includeFullImage: boolean,
+    force: boolean
+  ) {
+    try {
+      const cachedScreenshot = await this.readCachedScreenshot(device.id, force)
+      if (!cachedScreenshot) {
+        return
+      }
+      const fullImage = dataUrl.stringify(cachedScreenshot.data, 'image/png')
+      let thumbnail = fullImage
+      try {
+        thumbnail = await createScreenshotThumbnail(fullImage)
+      } catch {
+        // 缓存原图无法生成缩略图时仍直接展示原图。
+      }
+
+      runInAction(() => {
+        const deviceStillExists = find(
+          this.getAllDevices(),
+          (candidate) => candidate.id === device.id
+        )
+        if (!deviceStillExists) {
+          return
+        }
+        const current = this.screenshots[device.id]
+        if (current && current.updatedAt > cachedScreenshot.updatedAt) {
+          return
+        }
+        this.screenshots = {
+          ...this.screenshots,
+          [device.id]: {
+            image: thumbnail,
+            status: 'success',
+            updatedAt: cachedScreenshot.updatedAt,
+          },
+        }
+        if (includeFullImage && this.device?.id === device.id) {
+          this.screenshot = fullImage
+        }
+      })
+    } catch {
+      // 单个损坏或不可读的缓存不会阻止设备列表加载。
+    }
+  }
   private bindEvent() {
     main.on('changeMemStore', (name, val) => {
       switch (name) {
@@ -570,6 +682,21 @@ class Store extends BaseStore {
           break
       }
     })
+    main.on(
+      'deviceScreenshotUpdated',
+      (update: IDeviceScreenshotCacheUpdate) => {
+        each(this.getAllDevices(), (device) => {
+          if (getDeviceScreenshotCacheKey(device.id) !== update.cacheKey) {
+            return
+          }
+          void this.loadCachedScreenshot(
+            device,
+            this.device?.id === device.id,
+            true
+          )
+        })
+      }
+    )
   }
 }
 

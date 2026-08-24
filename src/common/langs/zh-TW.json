@@ -252,7 +252,7 @@
   "screenshotFailed": "取得截圖失敗",
   "updatingScreenshots": "正在更新截圖...",
   "noMatchingDevices": "沒有符合的設備",
-  "latestScreenshot": "最新截圖",
+  "cachedScreenshot": "快取截圖",
   "importCsv": "匯入 CSV",
   "exportCsv": "匯出 CSV",
   "devicesImported": "已匯入 {{count}} 台設備",

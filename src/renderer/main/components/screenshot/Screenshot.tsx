@@ -21,21 +21,48 @@ import { useEffect, useRef, useState } from 'react'
 import store from '../../store'
 import { t } from 'common/util'
 import CopyButton from 'share/renderer/components/CopyButton'
-import { copyData } from 'share/renderer/lib/util'
+import { copyData, notify } from 'share/renderer/lib/util'
 import dateFormat from 'licia/dateFormat'
+import {
+  IDeviceScreenshotCache,
+  IDeviceScreenshotCacheUpdate,
+} from 'common/types'
+import { getDeviceScreenshotCacheKey } from 'common/device'
+
+interface IScreenshotImage {
+  data: string
+  url: string
+  width: number
+  height: number
+  size: number
+}
 
 export default observer(function Screenshot() {
-  const [image, setImage] = useState<{
-    data: string
-    url: string
-    width: number
-    height: number
-    size: number
-  } | null>(null)
+  const [image, setImage] = useState<IScreenshotImage | null>(null)
+  const [capturing, setCapturing] = useState(false)
   const imageViewerRef = useRef<ImageViewer>(null)
+  const requestRef = useRef(0)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
-    recapture()
+    mountedRef.current = true
+    void loadCachedScreenshot()
+    const removeListener = main.on(
+      'deviceScreenshotUpdated',
+      (update: IDeviceScreenshotCacheUpdate) => {
+        if (
+          store.device &&
+          update.cacheKey === getDeviceScreenshotCacheKey(store.device.id)
+        ) {
+          void loadCachedScreenshot()
+        }
+      }
+    )
+    return () => {
+      mountedRef.current = false
+      requestRef.current += 1
+      removeListener()
+    }
   }, [])
 
   function save() {
@@ -48,19 +75,70 @@ export default observer(function Screenshot() {
   }
 
   async function recapture() {
-    if (store.device) {
-      const data = await main.screencap(store.device.id)
-      const url = dataUrl.stringify(data, 'image/png')
-      loadImg(url, (err, img) => {
-        setImage({
-          data,
-          url,
-          width: img.width,
-          height: img.height,
-          size: base64.decode(data).length,
-        })
-      })
+    if (!store.device || capturing) {
+      return
     }
+    const request = ++requestRef.current
+    setCapturing(true)
+    try {
+      const cachedScreenshot = await main.captureDeviceScreenshot(
+        store.device.id
+      )
+      applyCachedScreenshot(cachedScreenshot, request)
+    } catch {
+      notify(t('screenshotFailed'), { icon: 'error' })
+      if (mountedRef.current) {
+        await loadCachedScreenshot()
+      }
+    } finally {
+      if (mountedRef.current) {
+        setCapturing(false)
+      }
+    }
+  }
+
+  async function loadCachedScreenshot() {
+    if (!store.device) {
+      return
+    }
+    const request = ++requestRef.current
+    try {
+      const cachedScreenshot = await main.getCachedDeviceScreenshot(
+        store.device.id
+      )
+      if (!cachedScreenshot) {
+        if (mountedRef.current && requestRef.current === request) {
+          setImage(null)
+        }
+        return
+      }
+      applyCachedScreenshot(cachedScreenshot, request)
+    } catch {
+      // 缓存读取失败时保持当前画面，手动重新截图仍可恢复缓存。
+    }
+  }
+
+  function applyCachedScreenshot(
+    cachedScreenshot: IDeviceScreenshotCache,
+    request: number
+  ) {
+    const url = dataUrl.stringify(cachedScreenshot.data, 'image/png')
+    loadImg(url, (error, loadedImage) => {
+      if (
+        error ||
+        !mountedRef.current ||
+        requestRef.current !== request
+      ) {
+        return
+      }
+      setImage({
+        data: cachedScreenshot.data,
+        url,
+        width: loadedImage.width,
+        height: loadedImage.height,
+        size: base64.decode(cachedScreenshot.data).length,
+      })
+    })
   }
 
   const hasImage = toBool(image)
@@ -70,9 +148,9 @@ export default observer(function Screenshot() {
       <LunaToolbar className="panel-toolbar">
         <ToolbarIcon
           icon="refresh"
-          title={t('recapture')}
+          title={t(capturing ? 'updatingScreenshots' : 'recapture')}
           onClick={recapture}
-          disabled={!store.device}
+          disabled={!store.device || capturing}
         />
         <ToolbarIcon
           icon="save"

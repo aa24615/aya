@@ -218,7 +218,7 @@
   "screenshotFailed": "获取截图失败",
   "updatingScreenshots": "正在更新截图...",
   "noMatchingDevices": "没有匹配的设备",
-  "latestScreenshot": "最新截图",
+  "cachedScreenshot": "缓存截图",
   "importCsv": "导入 CSV",
   "exportCsv": "导出 CSV",
   "devicesImported": "已导入 {{count}} 台设备",

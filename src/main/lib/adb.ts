@@ -30,6 +30,7 @@ import * as file from './adb/file'
 import * as fps from './adb/fps'
 import * as webview from './adb/webview'
 import * as port from './adb/port'
+import * as screenshot from './adb/screenshot'
 import { getCpuLoads, getCpus, getCpuTemperature } from './adb/cpu'
 import log from 'share/common/log'
 import {
@@ -39,7 +40,6 @@ import {
   IpcGetDevices,
   IpcInputKey,
   IpcPairDevice,
-  IpcScreencap,
   IDeviceMetadata,
 } from 'common/types'
 import { getDeviceMetadataKey } from 'common/device'
@@ -233,14 +233,6 @@ async function getBattery(deviceId: string) {
     batteryTemperature: toNum(getPropValue('temperature', result)),
     batteryVoltage: toNum(getPropValue('voltage', result)),
   }
-}
-
-const screencap: IpcScreencap = async function (deviceId) {
-  const device = await client.getDevice(deviceId)
-  const data = await device.screencap()
-  const buf = await Adb.util.readAll(data)
-
-  return buf.toString('base64')
 }
 
 const dumpWindowHierarchy: IpcDumpWindowHierarchy = async function (deviceId) {
@@ -443,11 +435,12 @@ export async function init() {
   fps.init()
   webview.init()
   port.init(client)
+  screenshot.init(client)
 
   handleEvent('getDevices', getDevices)
   handleEvent('getOverview', getOverview)
   handleEvent('setFontScale', setFontScale)
-  handleEvent('screencap', screencap)
+  handleEvent('screencap', screenshot.screencap)
   handleEvent('getMemory', getMemory)
   handleEvent('getPerformance', getPerformance)
   handleEvent('getUptime', getUptime)
