@@ -66,10 +66,13 @@ is not repeated when a custom name exists, and remarks are not shown here.
 ## Device Cards and Batch Screenshots
 
 Card mode uses a five-column vertical gallery. Each screenshot is shown above
-the text at its original aspect ratio, so the card height adapts without
-cropping the screen. A compact green or gray tag in the image corner indicates
-whether the device is online or offline. The text below only shows the custom
-device name (or the ADB model when no custom name is set) and the device ID.
+the text at its original aspect ratio, so the image height adapts without
+cropping the screen. The name and device ID use a separate fixed-height area
+below the image, so the total card height is the image height plus the text
+area and cards never overlap. Each five-card row starts below its tallest card.
+A compact green or gray tag in the image corner indicates whether the device
+is online or offline. The text below only shows the custom device name (or the
+ADB model when no custom name is set) and the device ID.
 Network devices use an `IP:port` ID, while USB and emulator devices keep their
 original ADB ID. Selecting a card shows the full screenshot in the resizable
 pane on the right.
