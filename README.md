@@ -138,6 +138,8 @@ CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multili
 
 ## URL Scheme
 
+For the complete action, parameter, encoding, and OS integration reference, see the [Chinese AYA-Plus URL Scheme guide](docs/URL-Scheme.md).
+
 Installed builds register the `aya://` URL Scheme. Links can open AYA-Plus,
 add one wireless device, switch the active device, start screencasting, open
 the device manager, or select a main-window panel:
