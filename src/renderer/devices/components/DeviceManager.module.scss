@@ -11,22 +11,23 @@
 .card-list {
   display: grid;
   align-content: start;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  grid-auto-rows: 164px;
-  gap: 12px;
+  align-items: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
   width: 100%;
   height: 100%;
-  padding: 12px;
+  padding: 8px;
   overflow-x: hidden;
   overflow-y: auto;
   background: var(--color-bg-container-darker);
 }
 
 .device-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(124px, 32%, 156px);
+  display: flex;
+  flex-direction: column;
+  align-self: start;
   width: 100%;
-  height: 164px;
+  height: auto;
   min-width: 0;
   padding: 0;
   overflow: hidden;
@@ -80,23 +81,51 @@
 .card-screenshot {
   position: relative;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100%;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   isolation: isolate;
   color: var(--color-text-secondary);
   background: var(--color-fill-secondary);
-  border-left: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.card-screenshot-placeholder {
+  aspect-ratio: 16 / 9;
+}
+
+.status-tag.card-status-tag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  min-width: 0;
+  max-width: calc(100% - 34px);
+  height: 16px;
+  padding: 0 4px;
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 14px;
+  white-space: nowrap;
+  border-radius: 8px;
+  pointer-events: none;
+
+  &::before {
+    flex: 0 0 auto;
+    width: 4px;
+    height: 4px;
+    margin-right: 3px;
+  }
 }
 
 .card-thumbnail {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
   background: #111;
   transition: filter 160ms ease;
 }
@@ -105,59 +134,38 @@
   filter: grayscale(1);
 }
 
-.card-screenshot-caption {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  right: 8px;
-  z-index: 1;
-  max-width: calc(100% - 16px);
-  padding: 3px 7px;
-  overflow: hidden;
-  color: #fff;
-  font-size: 11px;
-  line-height: 16px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-radius: 4px;
-  background: rgb(0 0 0 / 60%);
-}
-
 .card-screenshot-state {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  z-index: 2;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  max-width: calc(100% - 16px);
-  min-height: 28px;
-  padding: 5px 9px;
-  font-size: 12px;
-  line-height: 1.3;
-  text-align: center;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
-.card-screenshot-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  flex-direction: column;
-  max-width: none;
-  min-height: 0;
-  padding: 8px;
+.card-screenshot-badge {
+  top: 4px;
+  bottom: auto;
+  left: 4px;
   color: #fff;
-  border-radius: 0;
   background: rgb(0 0 0 / 65%);
-  pointer-events: none;
+  transform: none;
 }
 
 .card-screenshot-error {
   color: var(--color-error);
 
-  &.card-screenshot-overlay {
+  &.card-screenshot-badge {
     color: #fff;
     background: color-mix(in srgb, var(--color-error) 78%, transparent);
   }
@@ -165,8 +173,8 @@
 
 .card-spinner {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border: 2px solid currentcolor;
   border-right-color: transparent;
   border-radius: 50%;
@@ -174,67 +182,34 @@
 }
 
 .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
   min-width: 0;
-  height: 100%;
-  padding: 10px 12px;
+  padding: 7px 8px 8px;
   overflow: hidden;
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  height: 18px;
+.card-device-name,
+.card-endpoint {
   min-width: 0;
-
-  .status-tag {
-    margin-left: 8px;
-  }
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-device-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1 1 auto;
-  font-weight: 600;
-}
-
-.card-fields {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  margin-top: 6px;
-}
-
-.card-field {
-  display: flex;
-  min-width: 0;
-  color: var(--color-text-secondary);
   font-size: 12px;
-  line-height: 16px;
+  font-weight: 600;
+  line-height: 18px;
 }
 
-.card-field-label {
-  flex: 0 0 auto;
-  max-width: 45%;
-  margin-right: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-field-value {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-field-monospace {
+.card-endpoint {
+  color: var(--color-text-secondary);
   font-family: monospace;
+  font-size: 11px;
+  line-height: 16px;
 }
 
 .card-empty {

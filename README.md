@@ -65,9 +65,14 @@ is not repeated when a custom name exists, and remarks are not shown here.
 
 ## Device Cards and Batch Screenshots
 
-Device cards use a fixed-height horizontal layout with complete device
-metadata on the left and the latest thumbnail on the right. Selecting a card
-shows the full screenshot in the resizable pane on the right.
+Card mode uses a five-column vertical gallery. Each screenshot is shown above
+the text at its original aspect ratio, so the card height adapts without
+cropping the screen. A compact green or gray tag in the image corner indicates
+whether the device is online or offline. The text below only shows the custom
+device name (or the ADB model when no custom name is set) and the device ID.
+Network devices use an `IP:port` ID, while USB and emulator devices keep their
+original ADB ID. Selecting a card shows the full screenshot in the resizable
+pane on the right.
 
 The **Reconnect and Refresh All Devices** button reconnects every saved network
 device, deduped by `IP:port`, and then reloads the latest status of network,
