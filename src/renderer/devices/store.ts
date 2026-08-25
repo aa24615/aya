@@ -162,6 +162,7 @@ class Store extends BaseStore {
   >()
   private initializedScreenshotCaches = new Set<string>()
   private screenshotPaneWeightDirty = false
+  private catalogRequest = 0
   private initPromise: Promise<void>
   constructor() {
     super()
@@ -198,16 +199,13 @@ class Store extends BaseStore {
     return this.initPromise
   }
   async init() {
-    const remoteDevices: IDevice[] = await main.getDevicesStore('remoteDevices')
-    const screenshotPaneWeight: number =
-      await main.getDevicesStore('screenshotPaneWeight')
-    const deviceMetadata: Record<string, IDeviceMetadata> =
-      await main.getDevicesStore('deviceMetadata')
-    const viewMode: DeviceViewMode = await main.getDevicesStore('viewMode')
+    const [catalog, screenshotPaneWeight, viewMode] = await Promise.all([
+      main.getDeviceCatalog(),
+      main.getDevicesStore('screenshotPaneWeight') as Promise<number>,
+      main.getDevicesStore('viewMode') as Promise<DeviceViewMode>,
+    ])
     runInAction(() => {
-      if (remoteDevices) {
-        this.remoteDevices = remoteDevices
-      }
+      this.remoteDevices = catalog.remoteDevices
       if (
         !this.screenshotPaneWeightDirty &&
         typeof screenshotPaneWeight === 'number' &&
@@ -217,16 +215,14 @@ class Store extends BaseStore {
           screenshotPaneWeight
         )
       }
-      if (deviceMetadata) {
-        this.deviceMetadata = deviceMetadata
-      }
+      this.deviceMetadata = catalog.deviceMetadata
       if (viewMode === 'table' || viewMode === 'card') {
         this.viewMode = viewMode
       }
     })
 
     const devices: IDevice[] = await main.getMemStore('devices')
-    this.updateDevices(devices || [])
+    this.updateDevices(devices || [], false)
   }
   setIp(ip: string) {
     this.ip = ip
@@ -261,14 +257,15 @@ class Store extends BaseStore {
       void this.loadCachedScreenshot(device, true, true)
     }
   }
-  updateDevices(devices: IDevice[]) {
+  updateDevices(devices: IDevice[], persistCatalog = true) {
     const previousOnline = new Map(
       this.getAllDevices().map((device) => [
         getNormalizedDeviceId(device.id),
         isDeviceOnline(device),
       ])
     )
-    const deviceMetadata = { ...toJS(this.deviceMetadata) }
+    const previousDeviceMetadata = toJS(this.deviceMetadata)
+    const deviceMetadata = { ...previousDeviceMetadata }
     let metadataChanged = false
     const storedRemoteDevices: IDevice[] = toJS(this.remoteDevices).map(
       (device) => {
@@ -300,10 +297,22 @@ class Store extends BaseStore {
     this.devices = filter(devices, (device) => !isRemoteDevice(device.id))
 
     this.remoteDevices = remoteDevices
-    main.setDevicesStore('remoteDevices', remoteDevices)
+    let metadataPatch: Record<string, IDeviceMetadata> | undefined
     if (metadataChanged) {
       this.deviceMetadata = deviceMetadata
-      main.setDevicesStore('deviceMetadata', deviceMetadata)
+      metadataPatch = Object.fromEntries(
+        Object.entries(deviceMetadata).filter(([key, value]) => {
+          const previous = previousDeviceMetadata[key]
+          return (
+            !previous ||
+            previous.deviceName !== value.deviceName ||
+            previous.remark !== value.remark
+          )
+        })
+      )
+    }
+    if (persistCatalog) {
+      void main.mergeDeviceCatalog(toJS(remoteDevices), metadataPatch)
     }
 
     each(this.getAllDevices(), (device) => {
@@ -342,6 +351,7 @@ class Store extends BaseStore {
     this.initializeCachedScreenshots(this.getAllDevices())
   }
   removeRemoteDevice(id: string) {
+    this.catalogRequest += 1
     const device = find(this.remoteDevices, (device) => device.id === id)
     this.remoteDevices = filter(this.remoteDevices, (device) => {
       return device.id !== id
@@ -356,13 +366,12 @@ class Store extends BaseStore {
     }
     this.initializedScreenshotCaches.delete(id)
     this.invalidateScreenshotRequest(id)
-    main.setDevicesStore('remoteDevices', toJS(this.remoteDevices))
+    void main.removeDeviceCatalogEntry(id)
     if (device) {
       const key = getDeviceMetadataKey(device)
       const deviceMetadata = { ...toJS(this.deviceMetadata) }
       delete deviceMetadata[key]
       this.deviceMetadata = deviceMetadata
-      main.setDevicesStore('deviceMetadata', deviceMetadata)
     }
   }
   getDeviceMetadata(device: Pick<IDevice, 'id' | 'serialno'>) {
@@ -377,6 +386,7 @@ class Store extends BaseStore {
     }
   }
   setDeviceMetadata(device: IDevice, deviceName: string, remark: string) {
+    this.catalogRequest += 1
     const key = getDeviceMetadataKey(device)
     this.deviceMetadata = {
       ...toJS(this.deviceMetadata),
@@ -385,9 +395,14 @@ class Store extends BaseStore {
         remark: remark.trim(),
       },
     }
-    main.setDevicesStore('deviceMetadata', toJS(this.deviceMetadata))
+    void main.setDeviceCatalogMetadata(
+      { id: device.id, serialno: device.serialno },
+      deviceName,
+      remark
+    )
   }
   importDevices(rows: IDeviceCsvRow[]) {
+    this.catalogRequest += 1
     const deviceMetadata = { ...toJS(this.deviceMetadata) }
     const remoteDevices: IDevice[] = []
     const remoteById = new Map<string, IDevice>()
@@ -489,8 +504,7 @@ class Store extends BaseStore {
           (device) => device.id === selectedId
         ) || null
     }
-    main.setDevicesStore('remoteDevices', remoteDevices)
-    main.setDevicesStore('deviceMetadata', deviceMetadata)
+    void main.mergeDeviceCatalog(remoteDevices, deviceMetadata)
     this.initializeCachedScreenshots(this.getAllDevices())
   }
   getAllDevices() {
@@ -863,6 +877,22 @@ class Store extends BaseStore {
       // 单个损坏或不可读的缓存不会阻止设备列表加载。
     }
   }
+  private async reloadDevicesCatalog() {
+    const request = ++this.catalogRequest
+    await this.whenInitialized()
+    const [catalog, devices] = await Promise.all([
+      main.getDeviceCatalog(),
+      main.getMemStore('devices'),
+    ])
+    if (request !== this.catalogRequest) {
+      return
+    }
+    runInAction(() => {
+      this.remoteDevices = catalog.remoteDevices
+      this.deviceMetadata = catalog.deviceMetadata
+    })
+    this.updateDevices(devices || [], false)
+  }
   private bindEvent() {
     main.on('changeMemStore', (name, val) => {
       switch (name) {
@@ -870,6 +900,9 @@ class Store extends BaseStore {
           void this.whenInitialized().then(() => this.updateDevices(val))
           break
       }
+    })
+    main.on('reloadDevicesCatalog', () => {
+      void this.reloadDevicesCatalog()
     })
     main.on(
       'deviceScreenshotUpdated',

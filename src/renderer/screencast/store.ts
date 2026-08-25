@@ -12,6 +12,7 @@ class Store extends BaseStore {
   settings = defaultSettings
   screenOff = false
   recording = false
+  private deviceRequest = 0
   constructor() {
     super()
 
@@ -53,10 +54,14 @@ class Store extends BaseStore {
     this.scrcpyClient.stopRecording()
   }
   async setDevice(device: IDevice | null) {
+    const request = ++this.deviceRequest
     if (device === null) {
       main.closeScreencast()
     } else {
       const deviceSettings = await main.getScreencastStore('settings')
+      if (request !== this.deviceRequest) {
+        return
+      }
       let settings = defaultSettings
       if (deviceSettings[device.id]) {
         settings = deviceSettings[device.id]
@@ -74,7 +79,10 @@ class Store extends BaseStore {
         })
       )
       this.scrcpyClient.on('close', () => {
-        if (this.device.id === device.id) {
+        if (
+          request === this.deviceRequest &&
+          this.device.id === device.id
+        ) {
           this.setDevice(null)
         }
       })

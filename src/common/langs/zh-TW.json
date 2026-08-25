@@ -266,5 +266,9 @@
   "csvNetworkHeadersRequired": "CSV 檔案必須包含設備名稱、IP地址、端口和備註欄",
   "csvInvalidNetworkAddress": "CSV 檔案中存在無效的 IPv4 地址或端口（端口範圍 1-65535）",
   "csvImportErr": "CSV 檔案匯入失敗",
-  "csvExportErr": "CSV 檔案匯出失敗"
+  "csvExportErr": "CSV 檔案匯出失敗",
+  "urlSchemeInvalid": "AYA-Plus 快捷連結無效",
+  "urlSchemeUnsupported": "不支援此 AYA-Plus 快捷連結操作",
+  "urlSchemeDeviceUnavailable": "目標設備離線或暫時不可用",
+  "urlSchemeActionFailed": "AYA-Plus 快捷連結執行失敗"
 }

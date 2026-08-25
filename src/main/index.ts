@@ -6,6 +6,7 @@ import * as terminal from 'share/main/window/terminal'
 import * as window from 'share/main/lib/window'
 import log from 'share/common/log'
 import { getSettingsStore } from './lib/store'
+import * as deepLink from './lib/deepLink'
 import 'share/main'
 
 const logger = log('main')
@@ -16,11 +17,14 @@ window.setDefaultOptions({
   customTitlebar: !settingsStore.get('useNativeTitlebar'),
 })
 
-app.on('ready', () => {
+deepLink.init()
+
+app.on('ready', async () => {
   logger.info('app ready')
 
   terminal.init()
-  adb.init()
+  await adb.init()
+  deepLink.start()
   main.showWin()
   menu.init()
 })

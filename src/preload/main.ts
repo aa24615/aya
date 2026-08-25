@@ -15,9 +15,11 @@ import {
   IpcGetAvds,
   IpcGetCachedDeviceScreenshot,
   IpcGetDevices,
+  IpcGetDeviceCatalog,
   IpcGetFileUrl,
   IpcGetFps,
   IpcImportDevicesCsv,
+  IpcMergeDeviceCatalog,
   IpcExportDevicesCsv,
   IpcGetPackageInfos,
   IpcGetPackages,
@@ -37,12 +39,14 @@ import {
   IpcPullFile,
   IpcPushFile,
   IpcReadDir,
+  IpcRemoveDeviceCatalogEntry,
   IpcResizeShell,
   IpcResumeLogcat,
   IpcReverse,
   IpcReverseTcp,
   IpcScreencap,
   IpcSetScreencastAlwaysOnTop,
+  IpcSetDeviceCatalogMetadata,
   IpcStartAvd,
   IpcStartPackage,
   IpcStartScrcpy,
@@ -56,9 +60,22 @@ import {
 import { IpcGetStore, IpcSetStore } from 'share/common/types'
 import mainObj from 'share/preload/main'
 import { invoke } from 'share/preload/util'
+import { ipcRenderer } from 'electron'
+
+// Capture the main-renderer generation while this preload instance is being
+// created. A ready signal from an older document is rejected after reload.
+const deepLinkGeneration = ipcRenderer.invoke('getDeepLinkGeneration')
 
 export default Object.assign(mainObj, {
   getDevices: invoke<IpcGetDevices>('getDevices'),
+  getDeviceCatalog: invoke<IpcGetDeviceCatalog>('getDeviceCatalog'),
+  mergeDeviceCatalog: invoke<IpcMergeDeviceCatalog>('mergeDeviceCatalog'),
+  removeDeviceCatalogEntry: invoke<IpcRemoveDeviceCatalogEntry>(
+    'removeDeviceCatalogEntry'
+  ),
+  setDeviceCatalogMetadata: invoke<IpcSetDeviceCatalogMetadata>(
+    'setDeviceCatalogMetadata'
+  ),
   importDevicesCsv: invoke<IpcImportDevicesCsv>('importDevicesCsv'),
   exportDevicesCsv: invoke<IpcExportDevicesCsv>('exportDevicesCsv'),
   getMainStore: invoke<IpcGetStore>('getMainStore'),
@@ -76,6 +93,8 @@ export default Object.assign(mainObj, {
   closeScreencast: invoke('closeScreencast'),
   restartScreencast: invoke('restartScreencast'),
   showDevices: invoke('showDevices'),
+  deepLinkReady: async () =>
+    ipcRenderer.invoke('deepLinkReady', await deepLinkGeneration),
   getOverview: invoke('getOverview'),
   setFontScale: invoke('setFontScale'),
   getPerformance: invoke('getPerformance'),

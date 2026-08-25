@@ -57,7 +57,7 @@ let client: Client
 /** 单台网络设备连接超时，避免离线端点让批量刷新永久等待。 */
 const DEVICE_CONNECT_TIMEOUT = 15_000
 
-const getDevices: IpcGetDevices = async function () {
+export const getDevices: IpcGetDevices = async function () {
   let devices = await client.listDevices()
   devices = filter(
     devices,
@@ -321,7 +321,7 @@ function getPropValue(key: string, str: string) {
   return ''
 }
 
-const connectDevice: IpcConnectDevice = async function (host, port) {
+export const connectDevice: IpcConnectDevice = async function (host, port) {
   const connectClient = Adb.createClient({
     bin: getAdbPath(),
     timeout: DEVICE_CONNECT_TIMEOUT,

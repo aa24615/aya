@@ -14,6 +14,11 @@ export interface IDeviceMetadata {
   remark: string
 }
 
+export interface IDeviceCatalogSnapshot {
+  remoteDevices: IDevice[]
+  deviceMetadata: Record<string, IDeviceMetadata>
+}
+
 export interface IDeviceCsvRow {
   id: string
   serialno?: string
@@ -87,6 +92,19 @@ export enum TransferType {
 
 export type IpcGetFps = (deviceId: string, pkg: string) => Promise<number>
 export type IpcGetDevices = () => Promise<IDevice[]>
+export type IpcGetDeviceCatalog = () => Promise<IDeviceCatalogSnapshot>
+export type IpcMergeDeviceCatalog = (
+  remoteDevices: IDevice[],
+  deviceMetadata?: Record<string, IDeviceMetadata>
+) => Promise<IDeviceCatalogSnapshot>
+export type IpcRemoveDeviceCatalogEntry = (
+  deviceId: string
+) => Promise<IDeviceCatalogSnapshot>
+export type IpcSetDeviceCatalogMetadata = (
+  device: Pick<IDevice, 'id' | 'serialno'>,
+  deviceName: string,
+  remark: string
+) => Promise<IDeviceCatalogSnapshot>
 export type IpcImportDevicesCsv = () => Promise<string | null>
 export type IpcExportDevicesCsv = (content: string) => Promise<string | null>
 export type IpcSetScreencastAlwaysOnTop = (alwaysOnTop: boolean) => void

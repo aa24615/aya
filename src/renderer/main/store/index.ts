@@ -12,6 +12,10 @@ import { installPackages, setMainStore } from '../../lib/util'
 import { setMemStore } from 'share/renderer/lib/util'
 import isEmpty from 'licia/isEmpty'
 import { IDevice } from 'common/types'
+import { isMainPanel, type MainPanel } from 'common/mainPanel'
+import type { IAyaDeepLinkDispatch } from 'common/deepLink'
+import { notify } from 'share/renderer/lib/util'
+import { t } from 'common/util'
 
 export const DEVICE_LIST_DEFAULT_WIDTH = 224
 export const DEVICE_LIST_MIN_WIDTH = 200
@@ -47,7 +51,7 @@ export function clampDeviceListWidth(
 class Store extends BaseStore {
   devices: IDevice[] = []
   device: IDevice | null = null
-  panel: string = 'overview'
+  panel: MainPanel = 'overview'
   deviceListWidth = DEVICE_LIST_DEFAULT_WIDTH
   settings = new Settings()
   application = new Application()
@@ -90,7 +94,7 @@ class Store extends BaseStore {
     }
     setMainStore('device', this.device)
   }
-  selectPanel(panel: string) {
+  selectPanel(panel: MainPanel) {
     this.panel = panel
     setMainStore('panel', panel)
   }
@@ -108,7 +112,7 @@ class Store extends BaseStore {
       main.getMainStore('deviceListWidth'),
     ])
     runInAction(() => {
-      if (panel) {
+      if (isMainPanel(panel)) {
         this.panel = panel
       }
       if (device) {
@@ -123,7 +127,10 @@ class Store extends BaseStore {
     })
     await this.refreshDevices()
 
-    this.ready = true
+    runInAction(() => {
+      this.ready = true
+    })
+    await main.deepLinkReady()
 
     const openFile = await main.getOpenFile('.apk')
     if (openFile && this.device) {
@@ -171,9 +178,51 @@ class Store extends BaseStore {
       this.applyDevices(devices)
     })
     main.on('selectDevice', this.selectDevice)
+    main.on('ayaDeepLinkCommand', (dispatch: IAyaDeepLinkDispatch) => {
+      this.applyDeepLinkCommand(dispatch)
+    })
+    main.on('ayaDeepLinkError', (error: string) => {
+      const key =
+        error === 'device-unavailable'
+          ? 'urlSchemeDeviceUnavailable'
+          : error === 'action-failed'
+            ? 'urlSchemeActionFailed'
+            : error === 'unsupported-action'
+              ? 'urlSchemeUnsupported'
+              : 'urlSchemeInvalid'
+      notify(t(key), { icon: 'error' })
+    })
     main.on('installPackage', async (path: string) => {
       if (this.device) {
         await installPackages(this.device.id, [path])
+      }
+    })
+  }
+
+  private applyDeepLinkCommand(dispatch: IAyaDeepLinkDispatch) {
+    const { command, devices } = dispatch
+    if (command.type === 'devices' || command.type === 'add') {
+      return
+    }
+    if (devices) {
+      this.refreshRequest += 1
+      runInAction(() => {
+        this.devices = devices
+      })
+    }
+    const device = command.deviceId
+      ? find(this.devices, ({ id }) => id === command.deviceId)
+      : this.device
+    if (command.deviceId && !device) {
+      notify(t('urlSchemeDeviceUnavailable'), { icon: 'error' })
+      return
+    }
+    runInAction(() => {
+      if (device) {
+        this.device = device
+      }
+      if (command.type === 'panel') {
+        this.panel = command.panel
       }
     })
   }

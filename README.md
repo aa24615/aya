@@ -136,6 +136,42 @@ the last duplicate CSV row wins. Legacy eight-column exports remain supported.
 
 CSV files with English or Chinese headers, UTF-8 BOM, quoted commas, and multiline remarks are supported. IPv4 addresses and ports from 1 to 65535 are accepted. See the [Chinese documentation](README.zh-CN.md#设备名称备注与-csv-管理) for detailed instructions.
 
+## URL Scheme
+
+Installed builds register the `aya://` URL Scheme. Links can open AYA-Plus,
+add one wireless device, switch the active device, start screencasting, open
+the device manager, or select a main-window panel:
+
+```text
+aya://list/add?ip=192.168.2.15&port=5555&name=Classroom%20Display&remark=First%20floor
+aya://device/select?ip=192.168.2.15&port=5555
+aya://screencast?ip=192.168.2.15&port=5555
+aya://main/screenshot?ip=192.168.2.15&port=5555
+aya://devices
+```
+
+`port` defaults to `5555`. A combined ADB ID can be supplied instead, for
+example `device=192.168.2.15%3A5555` or `device=emulator-5554`. Wireless
+devices are uniquely identified by their canonical `IP:port`. If an endpoint
+does not exist yet, AYA-Plus saves it first and then attempts to connect before
+performing the requested action. Existing endpoints are reused; `name` (or
+`deviceName`) and `remark` only overwrite metadata when explicitly supplied.
+
+The allowed main panels are `overview`, `file`, `application`, `process`,
+`performance`, `shell`, `layout`, `screenshot`, `logcat`, and `webview`.
+Short aliases such as `aya://select`, `aya://cast`, `aya://screenshot`,
+`aya://list/add`, and `aya://投屏` are also accepted. A screenshot link only
+opens the cached screenshot page; it does not capture a fresh image.
+
+Links are treated as untrusted input. Unknown actions or parameters, invalid
+IPv4 addresses/ports, credentials, fragments, control characters, and
+oversized values are rejected. The URL Scheme never directly executes a shell
+command, deletes files, installs APKs, or triggers a real-time screenshot.
+On macOS, test an installed build with
+`open 'aya://device/select?ip=192.168.2.15&port=5555'`. If multiple AYA/AYA-Plus
+copies are installed, the last application registered for `aya://` normally
+owns the protocol.
+
 For more detailed usage instructions, refer to the [upstream AYA documentation](https://aya.liriliri.io).
 
 ## Related Projects

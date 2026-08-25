@@ -37,6 +37,13 @@ if (isMac && process.arch !== 'arm64') {
 
 const config = {
   appId: pkg.appId,
+  protocols: [
+    {
+      name: 'AYA-Plus URL Scheme',
+      schemes: ['aya'],
+      role: 'Viewer',
+    },
+  ],
   directories: {
     output: outputDir,
   },
@@ -51,6 +58,7 @@ const config = {
     allowToChangeInstallationDirectory: true,
     oneClick: false,
     installerSidebar: 'build/installerSidebar.bmp',
+    include: 'build/installer.nsh',
   },
   win: {
     target: [

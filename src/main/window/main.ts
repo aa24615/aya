@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, session, type WebContents } from 'electron'
 import { getMainStore } from '../lib/store'
 import { getOpenFileFromArgv, handleEvent } from 'share/main/lib/util'
 import * as window from 'share/main/lib/window'
@@ -15,14 +15,42 @@ const logger = log('mainWin')
 const store = getMainStore()
 
 let win: BrowserWindow | null = null
+let rendererGeneration = 0
+const rendererUnavailableListeners = new Set<(generation: number) => void>()
+
+export function onRendererUnavailable(listener: (generation: number) => void) {
+  rendererUnavailableListeners.add(listener)
+  return () => rendererUnavailableListeners.delete(listener)
+}
+
+function notifyRendererUnavailable() {
+  rendererGeneration += 1
+  for (const listener of rendererUnavailableListeners) {
+    listener(rendererGeneration)
+  }
+}
+
+export function getRendererGeneration(sender: WebContents) {
+  if (!win || win.isDestroyed() || win.webContents !== sender) {
+    return -1
+  }
+  return rendererGeneration
+}
 
 export function showWin() {
   logger.info('show')
 
-  if (win) {
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) {
+      win.restore()
+    }
+    if (!win.isVisible()) {
+      win.show()
+    }
     win.focus()
     return
   }
+  win = null
 
   init()
   initIpc()
@@ -45,6 +73,12 @@ export function showWin() {
       app.quit()
     }
   })
+  win.on('closed', () => {
+    notifyRendererUnavailable()
+    win = null
+  })
+  win.webContents.on('did-start-loading', notifyRendererUnavailable)
+  win.webContents.on('render-process-gone', notifyRendererUnavailable)
 
   window.loadPage(win)
 }

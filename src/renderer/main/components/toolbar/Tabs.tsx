@@ -4,21 +4,11 @@ import map from 'licia/map'
 import { t } from 'common/util'
 import Style from './Tabs.module.scss'
 import store from '../../store'
+import { isMainPanel, MAIN_PANELS } from 'common/mainPanel'
 
 export default observer(function Panels() {
   const tabItems = map(
-    [
-      'overview',
-      'file',
-      'application',
-      'process',
-      'performance',
-      'shell',
-      'layout',
-      'screenshot',
-      'logcat',
-      'webview',
-    ],
+    MAIN_PANELS,
     (panel) => {
       return (
         <LunaTabItem
@@ -35,7 +25,11 @@ export default observer(function Panels() {
     <LunaTab
       className={Style.container}
       height={31}
-      onSelect={(panel) => store.selectPanel(panel)}
+      onSelect={(panel) => {
+        if (isMainPanel(panel)) {
+          store.selectPanel(panel)
+        }
+      }}
     >
       {tabItems}
     </LunaTab>

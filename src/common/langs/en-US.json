@@ -232,5 +232,9 @@
   "csvNetworkHeadersRequired": "The CSV file must contain Device Name, IP Address, Port, and Remark columns",
   "csvInvalidNetworkAddress": "The CSV file contains an invalid IPv4 address or port (1-65535)",
   "csvImportErr": "Failed to import the CSV file",
-  "csvExportErr": "Failed to export the CSV file"
+  "csvExportErr": "Failed to export the CSV file",
+  "urlSchemeInvalid": "Invalid AYA-Plus link",
+  "urlSchemeUnsupported": "This AYA-Plus link action is not supported",
+  "urlSchemeDeviceUnavailable": "The target device is offline or unavailable",
+  "urlSchemeActionFailed": "Failed to handle the AYA-Plus link"
 }

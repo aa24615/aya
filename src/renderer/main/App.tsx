@@ -15,6 +15,7 @@ import { useState, PropsWithChildren, FC } from 'react'
 import store from './store'
 import { observer } from 'mobx-react-lite'
 import { t } from 'common/util'
+import { type MainPanel } from 'common/mainPanel'
 
 export default observer(function App() {
   return (
@@ -74,7 +75,7 @@ export default observer(function App() {
 })
 
 interface IPanelProps {
-  panel: string
+  panel: MainPanel
 }
 
 const Panel: FC<PropsWithChildren<IPanelProps>> = observer(function Panel(

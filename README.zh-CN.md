@@ -175,6 +175,45 @@ ID,序列号,型号,设备名称,备注,Android 版本,SDK 版本
 192.168.1.10:5555,SN001,Pixel 8,前台签到机,一楼大厅,14,34
 ```
 
+## URL Scheme 快捷链接
+
+安装版会注册 `aya://` 协议，可从浏览器、脚本或其他业务系统直接打开 AYA-Plus，并执行以下白名单操作：导入单台网络设备、切换主界面当前设备、打开投屏、打开设备管理器，以及切换主界面常用功能页。
+
+```text
+# 导入单台设备；名称和备注需要进行 URL 编码
+aya://list/add?ip=192.168.2.15&port=5555&name=%E6%95%99%E5%AE%A4%E5%A4%A7%E5%B1%8F&remark=%E4%B8%80%E6%A5%BC
+
+# 选中设备，也就是把主界面切换到该 IP 和端口
+aya://device/select?ip=192.168.2.15&port=5555
+
+# 选中设备后打开投屏
+aya://screencast?ip=192.168.2.15&port=5555
+
+# 选中设备后打开缓存截图页；不会实时重新截图
+aya://main/screenshot?ip=192.168.2.15&port=5555
+
+# 打开设备管理器
+aya://devices
+```
+
+参数和设备处理规则：
+
+- `port` 可省略，默认使用 `5555`。
+- 也可以使用组合设备 ID，例如 `device=192.168.2.15%3A5555`；已在线的 USB 或模拟器可使用 `device=emulator-5554` 这类原始 ADB ID。
+- 网络设备严格以规范化后的 `IP:端口` 唯一识别。同一端点已存在时直接复用，不会重复新增；不存在时先保存为离线设备，再尝试 ADB 连接，连接成功后才继续选中、切页或投屏。
+- 可选参数 `name`（也支持 `deviceName`）和 `remark` 分别用于设备名称和备注。只有链接明确提供参数时才覆盖原值；未提供时保留已有信息。
+- 目标设备连接失败时仍会保留在设备管理器中，但不会误选其他设备，也不会错误打开投屏。
+
+主界面支持以下页面：`overview`、`file`、`application`、`process`、`performance`、`shell`、`layout`、`screenshot`、`logcat`、`webview`。完整格式为 `aya://main/页面名?...`；同时支持 `aya://select`、`aya://cast`、`aya://screenshot`、`aya://list/add`、`aya://投屏` 等简写。
+
+URL 来自外部时会按不可信输入处理：未知操作或参数、无效 IPv4/端口、账号密码、片段、控制字符和超长内容都会被拒绝。快捷链接不会直接执行 Shell 命令、删除文件、安装 APK 或实时重新截图。macOS 安装后可使用下面的命令测试：
+
+```bash
+open 'aya://device/select?ip=192.168.2.15&port=5555'
+```
+
+如果电脑同时安装了多个 AYA 或 AYA-Plus 副本，通常由最后注册 `aya://` 的应用接收链接。
+
 ## 开发与构建
 
 项目主要使用 Electron、React、TypeScript、MobX、Vite 和 Electron Builder，并包含一个用于设备端能力的 Android 服务模块。

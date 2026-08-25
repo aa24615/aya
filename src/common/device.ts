@@ -28,7 +28,14 @@ export function getDeviceDisplayName(
   return device.deviceName?.trim() || device.name?.trim() || device.id
 }
 
-function normalizeRemoteDeviceId(deviceId: string) {
+export interface IRemoteDeviceEndpoint {
+  ip: string
+  port: number
+}
+
+export function parseRemoteDeviceId(
+  deviceId: string
+): IRemoteDeviceEndpoint | null {
   const match = deviceId.match(/^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/)
   if (!match) {
     return null
@@ -39,7 +46,15 @@ function normalizeRemoteDeviceId(deviceId: string) {
   if (!validIp || port < 1 || port > 65535) {
     return null
   }
-  return `${ipParts.join('.')}:${port}`
+  return {
+    ip: ipParts.join('.'),
+    port,
+  }
+}
+
+export function normalizeRemoteDeviceId(deviceId: string) {
+  const endpoint = parseRemoteDeviceId(deviceId)
+  return endpoint ? `${endpoint.ip}:${endpoint.port}` : null
 }
 
 /**
