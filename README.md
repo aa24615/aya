@@ -69,6 +69,13 @@ Device cards use a fixed-height horizontal layout with complete device
 metadata on the left and the latest thumbnail on the right. Selecting a card
 shows the full screenshot in the resizable pane on the right.
 
+The **Reconnect and Refresh All Devices** button reconnects every saved network
+device, deduped by `IP:port`, and then reloads the latest status of network,
+USB, and emulator devices. One failed network connection does not stop the
+remaining devices. When saved network devices exist, AYA-Plus reports their
+online and offline counts after the refresh finishes. Refreshing device status
+does not capture screenshots.
+
 AYA-Plus persistently caches the last successful screenshot for every device
 and restores it after the app restarts. Wireless ADB screenshots are named by
 IP, such as `10.0.0.8.png`; a changed port still overwrites the same file. USB

@@ -136,6 +136,9 @@ class Store extends BaseStore {
     if (request !== this.refreshRequest) {
       return
     }
+    this.applyDevices(devices)
+  }
+  private applyDevices(devices: IDevice[]) {
     runInAction(() => {
       this.devices = devices
       setMemStore('devices', devices)
@@ -162,6 +165,11 @@ class Store extends BaseStore {
   private bindEvent() {
     main.on('changeDevice', this.refreshDevices)
     main.on('refreshDevices', this.refreshDevices)
+    main.on('syncDevices', (devices: IDevice[]) => {
+      // 设备管理器提供的快照比正在进行的旧查询更新，先使旧请求失效再应用。
+      this.refreshRequest += 1
+      this.applyDevices(devices)
+    })
     main.on('selectDevice', this.selectDevice)
     main.on('installPackage', async (path: string) => {
       if (this.device) {

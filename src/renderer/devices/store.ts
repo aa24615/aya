@@ -11,7 +11,11 @@ import each from 'licia/each'
 import filter from 'licia/filter'
 import concat from 'licia/concat'
 import unique from 'licia/unique'
-import { isRemoteDevice, normalizeRemoteDeviceId } from './lib/util'
+import {
+  isRemoteDevice,
+  normalizeRemoteDeviceId,
+  parseRemoteDeviceId,
+} from './lib/util'
 import dataUrl from 'licia/dataUrl'
 import isStr from 'licia/isStr'
 import find from 'licia/find'
@@ -42,6 +46,12 @@ export interface IScreenshotBatchResult {
   success: number
   failed: number
   skipped: number
+}
+
+export interface IDeviceRefreshResult {
+  total: number
+  online: number
+  offline: number
 }
 
 function clampScreenshotPaneWeight(weight: number) {
@@ -139,11 +149,13 @@ class Store extends BaseStore {
   screenshot: string | null = null
   screenshots: Record<string, IDeviceScreenshot> = {}
   screenshotsRefreshing = false
+  devicesRefreshing = false
   private screenshotTasks = new Map<string, Promise<IScreenshotResult>>()
   private screenshotRequestVersions = new Map<string, number>()
   private screenshotQueue = new ConcurrencyQueue(3)
   private screenshotCacheQueue = new ConcurrencyQueue(3)
   private screenshotBatch: Promise<IScreenshotBatchResult> | null = null
+  private deviceRefreshTask: Promise<IDeviceRefreshResult> | null = null
   private screenshotCacheLoads = new Map<
     string,
     Promise<IDeviceScreenshotCache | null>
@@ -166,6 +178,7 @@ class Store extends BaseStore {
       screenshot: observable,
       screenshots: observable,
       screenshotsRefreshing: observable,
+      devicesRefreshing: observable,
       setIp: action,
       setPort: action,
       setFilter: action,
@@ -482,6 +495,67 @@ class Store extends BaseStore {
   }
   getAllDevices() {
     return concat(this.devices, this.remoteDevices)
+  }
+  refreshDevices(): Promise<IDeviceRefreshResult> {
+    if (this.deviceRefreshTask) {
+      return this.deviceRefreshTask
+    }
+
+    runInAction(() => {
+      this.devicesRefreshing = true
+    })
+    const task = this.reconnectAndRefreshDevices().finally(() => {
+      runInAction(() => {
+        this.devicesRefreshing = false
+      })
+      if (this.deviceRefreshTask === task) {
+        this.deviceRefreshTask = null
+      }
+    })
+    this.deviceRefreshTask = task
+    return task
+  }
+  private async reconnectAndRefreshDevices(): Promise<IDeviceRefreshResult> {
+    await this.whenInitialized()
+
+    const endpoints = new Map<string, { ip: string; port: number }>()
+    each(toJS(this.remoteDevices), (device) => {
+      const endpoint = parseRemoteDeviceId(device.id)
+      if (!endpoint) {
+        return
+      }
+      endpoints.set(`${endpoint.ip}:${endpoint.port}`, endpoint)
+    })
+    const endpointList = Array.from(endpoints.values())
+
+    await mapWithConcurrency(endpointList, 3, async ({ ip, port }) => {
+      try {
+        await main.connectDevice(ip, port)
+        return true
+      } catch {
+        // 单台设备连接失败不应中断其余设备，也仍需执行最终状态查询。
+        return false
+      }
+    })
+
+    const devices = await main.getDevices()
+    this.updateDevices(devices)
+
+    // 将同一份最终快照同步给主窗口，避免再次查询造成状态时序不一致。
+    main.sendToWindow('main', 'syncDevices', devices)
+    const onlineDeviceIds = new Set(
+      devices
+        .map((device) => normalizeRemoteDeviceId(device.id))
+        .filter((id): id is string => Boolean(id))
+    )
+    const online = Array.from(endpoints.keys()).filter((id) =>
+      onlineDeviceIds.has(id)
+    ).length
+    return {
+      total: endpoints.size,
+      online,
+      offline: endpoints.size - online,
+    }
   }
   setScreenshotPaneWeight(weight: number) {
     const screenshotPaneWeight = clampScreenshotPaneWeight(weight)

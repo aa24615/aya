@@ -54,6 +54,9 @@ const settingsStore = getSettingsStore()
 
 let client: Client
 
+/** 单台网络设备连接超时，避免离线端点让批量刷新永久等待。 */
+const DEVICE_CONNECT_TIMEOUT = 15_000
+
 const getDevices: IpcGetDevices = async function () {
   let devices = await client.listDevices()
   devices = filter(
@@ -319,7 +322,11 @@ function getPropValue(key: string, str: string) {
 }
 
 const connectDevice: IpcConnectDevice = async function (host, port) {
-  await client.connect(host, port)
+  const connectClient = Adb.createClient({
+    bin: getAdbPath(),
+    timeout: DEVICE_CONNECT_TIMEOUT,
+  })
+  await connectClient.connect(host, port)
 }
 
 const disconnectDevice: IpcDisconnectDevice = async function (host, port) {
@@ -394,7 +401,13 @@ async function restartAdbServer() {
 export async function init() {
   logger.info('init')
 
+  let deviceChangeTimer: ReturnType<typeof setTimeout> | null = null
+
   app.on('will-quit', async () => {
+    if (deviceChangeTimer) {
+      clearTimeout(deviceChangeTimer)
+      deviceChangeTimer = null
+    }
     if (settingsStore.get('killAdbWhenExit')) {
       logger.info('kill adb')
       await client.kill()
@@ -424,7 +437,14 @@ export async function init() {
   }
   function onDeviceChange() {
     logger.info('device change')
-    setTimeout(() => window.sendAll('changeDevice'), 2000)
+    if (deviceChangeTimer) {
+      clearTimeout(deviceChangeTimer)
+    }
+    // 批量重连会连续触发多个 add/remove 事件，合并后只刷新一次设备列表。
+    deviceChangeTimer = setTimeout(() => {
+      deviceChangeTimer = null
+      window.sendAll('changeDevice')
+    }, 2000)
   }
   track()
 

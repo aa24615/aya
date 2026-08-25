@@ -73,7 +73,7 @@ export default observer(function Toolbar() {
             }
           }}
           state="hover"
-          disabled={isStrBlank(store.ip)}
+          disabled={store.devicesRefreshing || isStrBlank(store.ip)}
         >
           {t('connect')}
         </LunaToolbarButton>
@@ -81,6 +81,7 @@ export default observer(function Toolbar() {
         <LunaToolbarButton
           onClick={() => setCodePairModalVisible(true)}
           state="hover"
+          disabled={store.devicesRefreshing}
         >
           {t('pair')}
         </LunaToolbarButton>
@@ -88,7 +89,7 @@ export default observer(function Toolbar() {
         <ToolbarIcon
           icon="wifi"
           title={t('wirelessMode')}
-          disabled={wirelessDisabled}
+          disabled={store.devicesRefreshing || wirelessDisabled}
           onClick={async () => {
             if (device) {
               try {
@@ -103,7 +104,10 @@ export default observer(function Toolbar() {
           icon="disconnect"
           title={t('disconnect')}
           disabled={
-            !device || !isRemoteDevice(device.id) || device.type === 'offline'
+            store.devicesRefreshing ||
+            !device ||
+            !isRemoteDevice(device.id) ||
+            device.type === 'offline'
           }
           onClick={async () => {
             if (device) {
@@ -120,7 +124,10 @@ export default observer(function Toolbar() {
           icon="delete"
           title={t('delete')}
           disabled={
-            !device || !isRemoteDevice(device.id) || device.type !== 'offline'
+            store.devicesRefreshing ||
+            !device ||
+            !isRemoteDevice(device.id) ||
+            device.type !== 'offline'
           }
           onClick={async () => {
             if (device) {
@@ -139,6 +146,7 @@ export default observer(function Toolbar() {
         <ToolbarIcon
           icon="open-file"
           title={t('importCsv')}
+          disabled={store.devicesRefreshing}
           onClick={async () => {
             try {
               const content = await main.importDevicesCsv()
@@ -258,8 +266,15 @@ export default observer(function Toolbar() {
               ? 'updatingScreenshots'
               : 'batchUpdateScreenshots'
           )}
-          disabled={store.screenshotsRefreshing || !hasOnlineDevices}
+          disabled={
+            store.screenshotsRefreshing ||
+            store.devicesRefreshing ||
+            !hasOnlineDevices
+          }
           onClick={async () => {
+            if (store.screenshotsRefreshing || store.devicesRefreshing) {
+              return
+            }
             try {
               const result = await store.refreshAllScreenshots()
               let icon: 'success' | 'warning' | 'error' = 'success'
@@ -276,10 +291,27 @@ export default observer(function Toolbar() {
         />
         <ToolbarIcon
           icon="refresh"
-          title={t('refresh')}
+          title={t(
+            store.devicesRefreshing
+              ? 'refreshingDevices'
+              : 'refreshAllDevices'
+          )}
+          disabled={store.devicesRefreshing || store.screenshotsRefreshing}
           onClick={async () => {
-            main.sendToWindow('main', 'refreshDevices')
-            notify(t('deviceRefreshed'), { icon: 'success' })
+            if (store.devicesRefreshing || store.screenshotsRefreshing) {
+              return
+            }
+            try {
+              const result = await store.refreshDevices()
+              notify(
+                result.total > 0
+                  ? t('devicesRefreshResult', result)
+                  : t('deviceRefreshed'),
+                { icon: result.offline > 0 ? 'warning' : 'success' }
+              )
+            } catch {
+              notify(t('devicesRefreshFailed'), { icon: 'error' })
+            }
           }}
         />
       </LunaToolbar>
