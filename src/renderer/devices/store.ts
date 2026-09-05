@@ -27,9 +27,27 @@ import {
 } from 'common/device'
 import { ConcurrencyQueue, mapWithConcurrency } from './lib/concurrency'
 import { createScreenshotThumbnail } from './lib/screenshot'
+import sleep from 'licia/sleep'
 
 export type DeviceViewMode = 'table' | 'card'
 export type DeviceScreenshotStatus = 'loading' | 'success' | 'error'
+export type DeviceConnectionPhase =
+  | 'waiting'
+  | 'connecting'
+  | 'verifying'
+  | 'failed'
+  | 'verificationFailed'
+
+export interface IDeviceConnectionState {
+  phase: DeviceConnectionPhase
+  position: number
+  total: number
+}
+
+export interface IDeviceRefreshProgress {
+  completed: number
+  total: number
+}
 
 export interface IDeviceScreenshot {
   image?: string
@@ -59,6 +77,11 @@ function clampScreenshotPaneWeight(weight: number) {
 }
 
 function getNormalizedDeviceId(deviceId: string) {
+  return normalizeRemoteDeviceId(deviceId) || deviceId
+}
+
+function getConnectionDeviceId(ip: string, port = 5555) {
+  const deviceId = `${ip.trim()}:${port}`
   return normalizeRemoteDeviceId(deviceId) || deviceId
 }
 
@@ -150,12 +173,21 @@ class Store extends BaseStore {
   screenshots: Record<string, IDeviceScreenshot> = {}
   screenshotsRefreshing = false
   devicesRefreshing = false
+  deviceConnecting = false
+  deviceConnections: Record<string, IDeviceConnectionState> = {}
+  deviceRefreshProgress: IDeviceRefreshProgress = {
+    completed: 0,
+    total: 0,
+  }
   private screenshotTasks = new Map<string, Promise<IScreenshotResult>>()
   private screenshotRequestVersions = new Map<string, number>()
   private screenshotQueue = new ConcurrencyQueue(3)
   private screenshotCacheQueue = new ConcurrencyQueue(3)
   private screenshotBatch: Promise<IScreenshotBatchResult> | null = null
   private deviceRefreshTask: Promise<IDeviceRefreshResult> | null = null
+  private deviceConnectionTask: Promise<void> | null = null
+  private deviceConnectionOperation = 0
+  private externalDeviceRevision = 0
   private screenshotCacheLoads = new Map<
     string,
     Promise<IDeviceScreenshotCache | null>
@@ -180,6 +212,9 @@ class Store extends BaseStore {
       screenshots: observable,
       screenshotsRefreshing: observable,
       devicesRefreshing: observable,
+      deviceConnecting: observable,
+      deviceConnections: observable,
+      deviceRefreshProgress: observable,
       setIp: action,
       setPort: action,
       setFilter: action,
@@ -348,6 +383,23 @@ class Store extends BaseStore {
     if (screenshotsChanged) {
       this.screenshots = screenshots
     }
+
+    const deviceConnections = { ...this.deviceConnections }
+    let deviceConnectionsChanged = false
+    each(this.getAllDevices(), (device) => {
+      const id = getNormalizedDeviceId(device.id)
+      if (
+        isDeviceOnline(device) &&
+        (deviceConnections[id]?.phase === 'failed' ||
+          deviceConnections[id]?.phase === 'verificationFailed')
+      ) {
+        delete deviceConnections[id]
+        deviceConnectionsChanged = true
+      }
+    })
+    if (deviceConnectionsChanged) {
+      this.deviceConnections = deviceConnections
+    }
     this.initializeCachedScreenshots(this.getAllDevices())
   }
   removeRemoteDevice(id: string) {
@@ -366,6 +418,11 @@ class Store extends BaseStore {
     }
     this.initializedScreenshotCaches.delete(id)
     this.invalidateScreenshotRequest(id)
+    if (this.deviceConnections[id]) {
+      const deviceConnections = { ...this.deviceConnections }
+      delete deviceConnections[id]
+      this.deviceConnections = deviceConnections
+    }
     void main.removeDeviceCatalogEntry(id)
     if (device) {
       const key = getDeviceMetadataKey(device)
@@ -510,13 +567,69 @@ class Store extends BaseStore {
   getAllDevices() {
     return concat(this.devices, this.remoteDevices)
   }
+  getDeviceConnection(deviceId: string) {
+    return this.deviceConnections[getNormalizedDeviceId(deviceId)]
+  }
+  async verifyDeviceConnections(deviceIds: readonly string[]) {
+    await this.whenInitialized()
+    const normalizedIds = new Set(
+      deviceIds.map((deviceId) => getNormalizedDeviceId(deviceId))
+    )
+    const devices = await this.getDevicesAfterConnection(normalizedIds)
+    this.updateDevices(devices)
+    // 让主窗口自行发起带请求序号的最新查询，避免跨窗口旧快照覆盖新状态。
+    main.sendToWindow('main', 'refreshDevices')
+    return devices
+  }
+  connectDevice(ip: string, port?: number): Promise<void> {
+    if (this.deviceConnectionTask) {
+      return this.deviceConnectionTask
+    }
+    if (this.deviceRefreshTask) {
+      return Promise.reject(new Error('DEVICE_CONNECTION_BUSY'))
+    }
+
+    const deviceId = getConnectionDeviceId(ip, port)
+    const operation = ++this.deviceConnectionOperation
+    runInAction(() => {
+      this.deviceConnecting = true
+      this.setDeviceConnection(deviceId, {
+        phase: 'connecting',
+        position: 1,
+        total: 1,
+      })
+    })
+
+    const task = this.connectAndRefreshDevice(
+      ip.trim(),
+      port,
+      deviceId,
+      operation
+    ).finally(() => {
+      if (this.deviceConnectionTask === task) {
+        runInAction(() => {
+          this.deviceConnecting = false
+        })
+        this.deviceConnectionTask = null
+      }
+    })
+    this.deviceConnectionTask = task
+    return task
+  }
   refreshDevices(): Promise<IDeviceRefreshResult> {
     if (this.deviceRefreshTask) {
       return this.deviceRefreshTask
     }
+    if (this.deviceConnectionTask) {
+      return Promise.reject(new Error('DEVICE_CONNECTION_BUSY'))
+    }
 
     runInAction(() => {
       this.devicesRefreshing = true
+      this.deviceRefreshProgress = {
+        completed: 0,
+        total: 0,
+      }
     })
     const task = this.reconnectAndRefreshDevices().finally(() => {
       runInAction(() => {
@@ -541,35 +654,264 @@ class Store extends BaseStore {
       endpoints.set(`${endpoint.ip}:${endpoint.port}`, endpoint)
     })
     const endpointList = Array.from(endpoints.values())
+    const operation = ++this.deviceConnectionOperation
 
-    await mapWithConcurrency(endpointList, 3, async ({ ip, port }) => {
-      try {
-        await main.connectDevice(ip, port)
-        return true
-      } catch {
-        // 单台设备连接失败不应中断其余设备，也仍需执行最终状态查询。
-        return false
+    runInAction(() => {
+      this.deviceConnections = Object.fromEntries(
+        endpointList.map(({ ip, port }, index) => [
+          getConnectionDeviceId(ip, port),
+          {
+            phase: 'waiting' as const,
+            position: index + 1,
+            total: endpointList.length,
+          },
+        ])
+      )
+      this.deviceRefreshProgress = {
+        completed: 0,
+        total: endpointList.length,
       }
     })
 
-    const devices = await main.getDevices()
-    this.updateDevices(devices)
+    try {
+      await mapWithConcurrency(
+        endpointList,
+        3,
+        async ({ ip, port }) => {
+          const deviceId = getConnectionDeviceId(ip, port)
+          this.updateDeviceConnectionPhase(
+            operation,
+            deviceId,
+            'connecting'
+          )
+          try {
+            await main.connectDevice(ip, port)
+            this.updateDeviceConnectionPhase(
+              operation,
+              deviceId,
+              'verifying'
+            )
+            return true
+          } catch {
+            // ADB 连接命令失败不一定表示设备离线，最终状态仍以设备列表为准。
+            this.updateDeviceConnectionPhase(
+              operation,
+              deviceId,
+              'verifying'
+            )
+            return false
+          } finally {
+            runInAction(() => {
+              if (operation !== this.deviceConnectionOperation) {
+                return
+              }
+              this.deviceRefreshProgress = {
+                completed: Math.min(
+                  this.deviceRefreshProgress.completed + 1,
+                  endpointList.length
+                ),
+                total: endpointList.length,
+              }
+            })
+          }
+        }
+      )
 
-    // 将同一份最终快照同步给主窗口，避免再次查询造成状态时序不一致。
-    main.sendToWindow('main', 'syncDevices', devices)
-    const onlineDeviceIds = new Set(
-      devices
-        .map((device) => normalizeRemoteDeviceId(device.id))
-        .filter((id): id is string => Boolean(id))
-    )
-    const online = Array.from(endpoints.keys()).filter((id) =>
-      onlineDeviceIds.has(id)
-    ).length
-    return {
-      total: endpoints.size,
-      online,
-      offline: endpoints.size - online,
+      const devices = await this.verifyDeviceConnections(
+        Array.from(endpoints.keys())
+      )
+      const onlineDeviceIds = new Set(
+        devices
+          .map((device) => normalizeRemoteDeviceId(device.id))
+          .filter((id): id is string => Boolean(id))
+      )
+      const online = Array.from(endpoints.keys()).filter((id) =>
+        onlineDeviceIds.has(id)
+      ).length
+      runInAction(() => {
+        if (operation === this.deviceConnectionOperation) {
+          const deviceConnections = { ...this.deviceConnections }
+          endpointList.forEach(({ ip, port }, index) => {
+            const deviceId = getConnectionDeviceId(ip, port)
+            if (onlineDeviceIds.has(deviceId)) {
+              delete deviceConnections[deviceId]
+            } else {
+              deviceConnections[deviceId] = {
+                phase: 'failed',
+                position: index + 1,
+                total: endpointList.length,
+              }
+            }
+          })
+          this.deviceConnections = deviceConnections
+        }
+      })
+      return {
+        total: endpoints.size,
+        online,
+        offline: endpoints.size - online,
+      }
+    } catch (error) {
+      runInAction(() => {
+        if (operation !== this.deviceConnectionOperation) {
+          return
+        }
+        this.deviceConnections = Object.fromEntries(
+          endpointList.map(({ ip, port }, index) => [
+            getConnectionDeviceId(ip, port),
+            {
+              phase: 'verificationFailed' as const,
+              position: index + 1,
+              total: endpointList.length,
+            },
+          ])
+        )
+      })
+      throw error
     }
+  }
+  private async connectAndRefreshDevice(
+    ip: string,
+    port: number | undefined,
+    deviceId: string,
+    operation: number
+  ) {
+    let connectError: unknown
+    try {
+      await this.whenInitialized()
+    } catch (error) {
+      this.updateDeviceConnectionPhase(
+        operation,
+        deviceId,
+        'verificationFailed'
+      )
+      throw error
+    }
+    try {
+      await main.connectDevice(ip, port)
+    } catch (error) {
+      connectError = error
+    }
+    this.updateDeviceConnectionPhase(operation, deviceId, 'verifying')
+    let devices: IDevice[]
+    try {
+      devices = await this.verifyDeviceConnections([deviceId])
+    } catch (error) {
+      this.updateDeviceConnectionPhase(
+        operation,
+        deviceId,
+        'verificationFailed'
+      )
+      throw error
+    }
+    const online = devices.some(
+      (device) => normalizeRemoteDeviceId(device.id) === deviceId
+    )
+    runInAction(() => {
+      if (operation !== this.deviceConnectionOperation) {
+        return
+      }
+      if (online) {
+        this.removeDeviceConnection(deviceId)
+      } else {
+        this.updateDeviceConnectionPhase(
+          operation,
+          deviceId,
+          'failed'
+        )
+      }
+    })
+    if (!online) {
+      throw connectError || new Error('DEVICE_CONNECTION_NOT_FOUND')
+    }
+  }
+  private async getDevicesAfterConnection(expectedIds: Set<string>) {
+    const attempts = expectedIds.size > 0 ? 4 : 1
+    let bestDevices: IDevice[] | null = null
+    let bestOnlineCount = -1
+    let bestRevision = -1
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const externalRevision = this.externalDeviceRevision
+      if (externalRevision !== bestRevision) {
+        bestDevices = null
+        bestOnlineCount = -1
+        bestRevision = externalRevision
+      }
+      try {
+        const devices = await main.getDevices()
+        if (externalRevision !== this.externalDeviceRevision) {
+          if (attempt < attempts - 1) {
+            await sleep(250)
+          }
+          continue
+        }
+        const onlineIds = new Set(
+          devices
+            .map((device) => normalizeRemoteDeviceId(device.id))
+            .filter((id): id is string => Boolean(id))
+        )
+        const onlineCount = Array.from(expectedIds).filter((deviceId) =>
+          onlineIds.has(deviceId)
+        ).length
+        if (onlineCount >= bestOnlineCount) {
+          bestDevices = devices
+          bestOnlineCount = onlineCount
+        }
+        if (expectedIds.size === 0 || onlineCount === expectedIds.size) {
+          return devices
+        }
+      } catch {
+        // 短暂的 ADB 查询失败会在下一次有界核验中重试。
+      }
+      if (attempt < attempts - 1) {
+        await sleep(250)
+      }
+    }
+
+    if (
+      bestDevices &&
+      bestRevision === this.externalDeviceRevision
+    ) {
+      return bestDevices
+    }
+    throw new Error('DEVICE_VERIFICATION_FAILED')
+  }
+  private setDeviceConnection(
+    deviceId: string,
+    state: IDeviceConnectionState
+  ) {
+    this.deviceConnections = {
+      ...this.deviceConnections,
+      [deviceId]: state,
+    }
+  }
+  private removeDeviceConnection(deviceId: string) {
+    if (!this.deviceConnections[deviceId]) {
+      return
+    }
+    const deviceConnections = { ...this.deviceConnections }
+    delete deviceConnections[deviceId]
+    this.deviceConnections = deviceConnections
+  }
+  private updateDeviceConnectionPhase(
+    operation: number,
+    deviceId: string,
+    phase: DeviceConnectionPhase
+  ) {
+    runInAction(() => {
+      if (operation !== this.deviceConnectionOperation) {
+        return
+      }
+      const current = this.deviceConnections[deviceId]
+      if (!current) {
+        return
+      }
+      this.setDeviceConnection(deviceId, {
+        ...current,
+        phase,
+      })
+    })
   }
   setScreenshotPaneWeight(weight: number) {
     const screenshotPaneWeight = clampScreenshotPaneWeight(weight)
@@ -897,6 +1239,7 @@ class Store extends BaseStore {
     main.on('changeMemStore', (name, val) => {
       switch (name) {
         case 'devices':
+          this.externalDeviceRevision += 1
           void this.whenInitialized().then(() => this.updateDevices(val))
           break
       }

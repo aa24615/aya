@@ -280,6 +280,88 @@
   background: var(--color-fill-secondary);
 }
 
+.status-connection {
+  gap: 4px;
+  padding: 0 5px;
+
+  &::before {
+    display: none;
+  }
+}
+
+.status-waiting {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-fill-secondary);
+}
+
+.status-connecting,
+.status-verifying {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.status-failed {
+  color: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error) 42%, transparent);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+.status-verification-failed {
+  color: var(--color-warning-text);
+  border-color: color-mix(
+    in srgb,
+    var(--color-warning-text) 45%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--color-warning-text) 11%,
+    transparent
+  );
+}
+
+.table-status-tag {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 3px;
+  gap: 2px;
+  font-size: 10px;
+
+  &::before {
+    width: 5px;
+    height: 5px;
+    margin-right: 2px;
+  }
+
+  .connection-spinner {
+    width: 8px;
+    height: 8px;
+    border-width: 1px;
+  }
+}
+
+.connection-spinner {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: card-spinner 0.8s linear infinite;
+}
+
+.card-status-tag.status-connection {
+  gap: 2px;
+
+  .connection-spinner {
+    width: 7px;
+    height: 7px;
+    border-width: 1px;
+  }
+}
+
 @keyframes card-spinner {
   to {
     transform: rotate(360deg);

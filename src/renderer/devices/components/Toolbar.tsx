@@ -13,21 +13,38 @@ import { t } from 'common/util'
 import { notify } from 'share/renderer/lib/util'
 import ToolbarIcon from 'share/renderer/components/ToolbarIcon'
 import store from '../store'
-import { isRemoteDevice, parseRemoteDeviceId } from '../lib/util'
+import {
+  isRemoteDevice,
+  normalizeRemoteDeviceId,
+  parseRemoteDeviceId,
+} from '../lib/util'
 import some from 'licia/some'
 import CodePairModal from './CodePairModal'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import DeviceEditModal from './DeviceEditModal'
 import { parseDevicesCsv, stringifyDevicesCsv } from '../lib/csv'
 import map from 'licia/map'
 import { IDeviceCsvRow } from 'common/types'
 import { isDeviceOnline } from 'common/device'
+import { mapWithConcurrency } from '../lib/concurrency'
 
 export default observer(function Toolbar() {
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const connectButtonContentRef = useRef<HTMLSpanElement>(null)
+  const pairButtonContentRef = useRef<HTMLSpanElement>(null)
+  const importingRef = useRef(false)
   const [codePairModalVisible, setCodePairModalVisible] = useState(false)
   const [deviceEditModalVisible, setDeviceEditModalVisible] = useState(false)
+  const [devicesImporting, setDevicesImporting] = useState(false)
   const { device, remoteDevices } = store
+  const connectionsBusy =
+    store.devicesRefreshing || store.deviceConnecting || devicesImporting
+  const connectDisabled = connectionsBusy || isStrBlank(store.ip)
+  const refreshTitle = store.devicesRefreshing
+    ? store.deviceRefreshProgress.total > 0
+      ? t('devicesRefreshProgress', store.deviceRefreshProgress)
+      : t('refreshingDevices')
+    : t('refreshAllDevices')
 
   const wirelessDisabled =
     !device ||
@@ -43,6 +60,41 @@ export default observer(function Toolbar() {
     searchInputRef.current?.focus()
   }
 
+  useLayoutEffect(() => {
+    const button = connectButtonContentRef.current?.closest('button')
+    if (!button) {
+      return
+    }
+    const title = t(store.deviceConnecting ? 'connectingDevice' : 'connect')
+    button.disabled = connectDisabled
+    button.title = title
+    button.setAttribute('aria-label', title)
+    button.setAttribute(
+      'aria-busy',
+      store.deviceConnecting ? 'true' : 'false'
+    )
+
+    const toolbar = connectButtonContentRef.current?.closest('.luna-toolbar')
+    const ipInput = toolbar?.querySelector<HTMLInputElement>(
+      `.${Style.ip} input`
+    )
+    const portInput = toolbar?.querySelector<HTMLInputElement>(
+      `.${Style.port} input`
+    )
+    if (ipInput) {
+      ipInput.disabled = connectionsBusy
+    }
+    if (portInput) {
+      portInput.disabled = connectionsBusy
+    }
+
+    const pairButton = pairButtonContentRef.current?.closest('button')
+    if (pairButton) {
+      pairButton.disabled = connectionsBusy
+      pairButton.setAttribute('aria-label', t('pair'))
+    }
+  }, [connectDisabled, connectionsBusy, store.deviceConnecting])
+
   return (
     <>
       <LunaToolbar className={Style.container}>
@@ -51,6 +103,7 @@ export default observer(function Toolbar() {
           className={Style.ip}
           placeholder={t('ipAddress')}
           value={store.ip}
+          disabled={connectionsBusy}
           onChange={(val) => store.setIp(val)}
         />
         <LunaToolbarInput
@@ -58,38 +111,53 @@ export default observer(function Toolbar() {
           className={Style.port}
           placeholder={t('port')}
           value={store.port}
+          disabled={connectionsBusy}
           onChange={(val) => store.setPort(val)}
         />
         <LunaToolbarButton
           onClick={async () => {
+            if (connectDisabled) {
+              return
+            }
             try {
-              if (store.port) {
-                await main.connectDevice(store.ip, toNum(store.port))
-              } else {
-                await main.connectDevice(store.ip)
-              }
+              const port = isStrBlank(store.port)
+                ? undefined
+                : toNum(store.port)
+              await store.connectDevice(store.ip, port)
             } catch {
               notify(t('connectErr'), { icon: 'error' })
             }
           }}
           state="hover"
-          disabled={store.devicesRefreshing || isStrBlank(store.ip)}
+          disabled={connectDisabled}
         >
-          {t('connect')}
+          <span
+            ref={connectButtonContentRef}
+            className={Style.connectButtonContent}
+          >
+            {store.deviceConnecting ? (
+              <span className={Style.connectionSpinner} aria-hidden="true" />
+            ) : null}
+            <span>{t('connect')}</span>
+          </span>
         </LunaToolbarButton>
         <LunaToolbarSeparator />
         <LunaToolbarButton
-          onClick={() => setCodePairModalVisible(true)}
+          onClick={() => {
+            if (!connectionsBusy) {
+              setCodePairModalVisible(true)
+            }
+          }}
           state="hover"
-          disabled={store.devicesRefreshing}
+          disabled={connectionsBusy}
         >
-          {t('pair')}
+          <span ref={pairButtonContentRef}>{t('pair')}</span>
         </LunaToolbarButton>
         <LunaToolbarSpace />
         <ToolbarIcon
           icon="wifi"
           title={t('wirelessMode')}
-          disabled={store.devicesRefreshing || wirelessDisabled}
+          disabled={connectionsBusy || wirelessDisabled}
           onClick={async () => {
             if (device) {
               try {
@@ -104,7 +172,7 @@ export default observer(function Toolbar() {
           icon="disconnect"
           title={t('disconnect')}
           disabled={
-            store.devicesRefreshing ||
+            connectionsBusy ||
             !device ||
             !isRemoteDevice(device.id) ||
             device.type === 'offline'
@@ -124,7 +192,7 @@ export default observer(function Toolbar() {
           icon="delete"
           title={t('delete')}
           disabled={
-            store.devicesRefreshing ||
+            connectionsBusy ||
             !device ||
             !isRemoteDevice(device.id) ||
             device.type !== 'offline'
@@ -146,8 +214,13 @@ export default observer(function Toolbar() {
         <ToolbarIcon
           icon="open-file"
           title={t('importCsv')}
-          disabled={store.devicesRefreshing}
+          disabled={connectionsBusy}
           onClick={async () => {
+            if (connectionsBusy || importingRef.current) {
+              return
+            }
+            importingRef.current = true
+            setDevicesImporting(true)
             try {
               const content = await main.importDevicesCsv()
               if (content === null) {
@@ -171,6 +244,9 @@ export default observer(function Toolbar() {
               )
             } catch (error) {
               notify(getCsvImportErrorMessage(error), { icon: 'error' })
+            } finally {
+              importingRef.current = false
+              setDevicesImporting(false)
             }
           }}
         />
@@ -268,11 +344,11 @@ export default observer(function Toolbar() {
           )}
           disabled={
             store.screenshotsRefreshing ||
-            store.devicesRefreshing ||
+            connectionsBusy ||
             !hasOnlineDevices
           }
           onClick={async () => {
-            if (store.screenshotsRefreshing || store.devicesRefreshing) {
+            if (store.screenshotsRefreshing || connectionsBusy) {
               return
             }
             try {
@@ -291,14 +367,11 @@ export default observer(function Toolbar() {
         />
         <ToolbarIcon
           icon="refresh"
-          title={t(
-            store.devicesRefreshing
-              ? 'refreshingDevices'
-              : 'refreshAllDevices'
-          )}
-          disabled={store.devicesRefreshing || store.screenshotsRefreshing}
+          className={store.devicesRefreshing ? Style.refreshing : undefined}
+          title={refreshTitle}
+          disabled={connectionsBusy || store.screenshotsRefreshing}
           onClick={async () => {
-            if (store.devicesRefreshing || store.screenshotsRefreshing) {
+            if (connectionsBusy || store.screenshotsRefreshing) {
               return
             }
             try {
@@ -315,6 +388,11 @@ export default observer(function Toolbar() {
           }}
         />
       </LunaToolbar>
+      {store.devicesRefreshing ? (
+        <span className={Style.srOnly} role="status" aria-live="polite">
+          {refreshTitle}
+        </span>
+      ) : null}
       <CodePairModal
         visible={codePairModalVisible}
         onClose={() => setCodePairModalVisible(false)}
@@ -338,21 +416,33 @@ async function connectImportedDevices(rows: IDeviceCsvRow[]) {
     endpoints.set(`${endpoint.ip}:${endpoint.port}`, endpoint)
   }
 
-  const results = await Promise.allSettled(
-    Array.from(endpoints.values()).map(({ ip, port }) =>
-      main.connectDevice(ip, port)
-    )
-  )
-  const connected = results.filter((result) => result.status === 'fulfilled')
-    .length
-  if (connected > 0) {
-    try {
-      store.updateDevices(await main.getDevices())
-    } catch {
-      // The main window refresh below will retry field discovery via ADB.
-    }
-    main.sendToWindow('main', 'refreshDevices')
+  if (endpoints.size === 0) {
+    return { total: 0, connected: 0, failed: 0 }
   }
+
+  await mapWithConcurrency(
+    Array.from(endpoints.values()),
+    3,
+    async ({ ip, port }) => {
+      try {
+        await main.connectDevice(ip, port)
+        return
+      } catch {
+        return
+      }
+    }
+  )
+  const devices = await store.verifyDeviceConnections(
+    Array.from(endpoints.keys())
+  )
+  const onlineDeviceIds = new Set(
+    devices
+      .map((device) => normalizeRemoteDeviceId(device.id))
+      .filter((id): id is string => Boolean(id))
+  )
+  const connected = Array.from(endpoints.keys()).filter((deviceId) =>
+    onlineDeviceIds.has(deviceId)
+  ).length
   return {
     total: endpoints.size,
     connected,
@@ -371,6 +461,8 @@ function getCsvImportErrorMessage(error: unknown) {
       return t('csvInvalidNetworkAddress')
     case 'CSV_ID_HEADER_REQUIRED':
       return t('csvIdHeaderRequired')
+    case 'DEVICE_VERIFICATION_FAILED':
+      return t('devicesRefreshFailed')
     default:
       return t('csvImportErr')
   }

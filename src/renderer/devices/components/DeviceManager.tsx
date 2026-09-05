@@ -15,6 +15,11 @@ import {
   getDeviceSearchTokens,
   matchesDeviceSearch,
 } from '../lib/search'
+import { getDeviceConnectionPresentation } from '../lib/connectionStatus'
+import type {
+  DeviceConnectionPhase,
+  IDeviceConnectionState,
+} from '../store'
 
 export default observer(function DeviceManager() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,7 +47,10 @@ export default observer(function DeviceManager() {
       androidVersion: device.androidVersion
         ? `Android ${device.androidVersion}${device.sdkVersion ? ` (API ${device.sdkVersion})` : ''}`
         : '',
-      status: createStatusTag(isDeviceOnline(device)),
+      status: createStatusTag(
+        isDeviceOnline(device),
+        store.getDeviceConnection(device.id)
+      ),
       type: device.type,
     }
   })
@@ -132,7 +140,7 @@ const columns = [
     id: 'remark',
     title: t('remark'),
     sortable: true,
-    weight: 20,
+    weight: 16,
   },
   {
     id: 'androidVersion',
@@ -144,15 +152,51 @@ const columns = [
     id: 'status',
     title: t('status'),
     sortable: true,
-    weight: 8,
+    weight: 12,
   },
 ]
 
-function createStatusTag(online: boolean) {
+function createStatusTag(
+  online: boolean,
+  connection?: IDeviceConnectionState
+) {
   const tag = document.createElement('span')
-  tag.className = `${Style.statusTag} ${
-    online ? Style.statusOnline : Style.statusOffline
-  }`
-  tag.textContent = online ? t('online') : t('offline')
+  if (!connection) {
+    tag.className = `${Style.statusTag} ${Style.tableStatusTag} ${
+      online ? Style.statusOnline : Style.statusOffline
+    }`
+    tag.textContent = online ? t('online') : t('offline')
+    return tag
+  }
+
+  const presentation = getDeviceConnectionPresentation(connection)
+  tag.className = `${Style.statusTag} ${Style.tableStatusTag} ${Style.statusConnection} ${getConnectionPhaseClass(connection.phase)}`
+  tag.title = presentation.title
+  tag.setAttribute('aria-label', presentation.title)
+  if (presentation.pending) {
+    tag.setAttribute('aria-busy', 'true')
+  }
+  if (presentation.pending && connection.phase !== 'waiting') {
+    const spinner = document.createElement('span')
+    spinner.className = Style.connectionSpinner
+    spinner.setAttribute('aria-hidden', 'true')
+    tag.appendChild(spinner)
+  }
+  tag.appendChild(document.createTextNode(presentation.compactLabel))
   return tag
+}
+
+function getConnectionPhaseClass(phase: DeviceConnectionPhase) {
+  switch (phase) {
+    case 'waiting':
+      return Style.statusWaiting
+    case 'connecting':
+      return Style.statusConnecting
+    case 'verifying':
+      return Style.statusVerifying
+    case 'failed':
+      return Style.statusFailed
+    case 'verificationFailed':
+      return Style.statusVerificationFailed
+  }
 }

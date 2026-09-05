@@ -42,7 +42,10 @@ import {
   IpcPairDevice,
   IDeviceMetadata,
 } from 'common/types'
-import { getDeviceMetadataKeys } from 'common/device'
+import {
+  getDeviceMetadataKeys,
+  parseRemoteDeviceId,
+} from 'common/device'
 import path from 'node:path'
 import childProcess from 'node:child_process'
 import isMac from 'licia/isMac'
@@ -102,7 +105,23 @@ export const getDevices: IpcGetDevices = async function () {
         }
       } catch (error) {
         logger.error(`get device properties error: ${device.id}`, error)
-        return null
+        const metadata = getDeviceMetadataKeys({
+          id: device.id,
+          serialno: '',
+        })
+          .map((key) => deviceMetadata[key])
+          .find(Boolean)
+        // listDevices 已确认设备在线时，属性暂时读取失败不能把它误判为离线。
+        return {
+          id: device.id,
+          type: device.type,
+          serialno: '',
+          name: '',
+          deviceName: metadata?.deviceName || '',
+          remark: metadata?.remark || '',
+          androidVersion: '',
+          sdkVersion: '',
+        }
       }
     })
   )
@@ -321,12 +340,44 @@ function getPropValue(key: string, str: string) {
   return ''
 }
 
-export const connectDevice: IpcConnectDevice = async function (host, port) {
+const deviceConnectTasks = new Map<string, Promise<void>>()
+
+export const connectDevice: IpcConnectDevice = function (host, port) {
+  host = host.trim()
+  port ??= 5555
+  if (host.includes(':')) {
+    const [parsedHost, portString] = host.split(':', 2)
+    const parsedPort = parseInt(portString, 10)
+    host = parsedHost.trim()
+    if (!Number.isNaN(parsedPort)) {
+      port = parsedPort
+    }
+  }
+  const normalizedEndpoint = parseRemoteDeviceId(`${host}:${port}`)
+  if (normalizedEndpoint) {
+    host = normalizedEndpoint.ip
+    port = normalizedEndpoint.port
+  }
+  const endpoint = `${host}:${port}`
+  const existingTask = deviceConnectTasks.get(endpoint)
+  if (existingTask) {
+    return existingTask
+  }
+
   const connectClient = Adb.createClient({
     bin: getAdbPath(),
     timeout: DEVICE_CONNECT_TIMEOUT,
   })
-  await connectClient.connect(host, port)
+  const task = connectClient
+    .connect(host, port)
+    .then(() => undefined)
+    .finally(() => {
+      if (deviceConnectTasks.get(endpoint) === task) {
+        deviceConnectTasks.delete(endpoint)
+      }
+    })
+  deviceConnectTasks.set(endpoint, task)
+  return task
 }
 
 const disconnectDevice: IpcDisconnectDevice = async function (host, port) {

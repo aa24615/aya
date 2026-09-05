@@ -9,6 +9,7 @@ import {
   getDeviceSearchTokens,
   matchesDeviceSearch,
 } from '../lib/search'
+import { getDeviceConnectionPresentation } from '../lib/connectionStatus'
 import { normalizeRemoteDeviceId } from '../lib/util'
 import Style from './DeviceManager.module.scss'
 
@@ -62,8 +63,18 @@ export default observer(function DeviceCards() {
     >
       {cards.map(({ device, displayName, endpoint, online }) => {
         const screenshot = store.screenshots[device.id]
+        const connection = store.getDeviceConnection(device.id)
+        const connectionPresentation = connection
+          ? getDeviceConnectionPresentation(connection)
+          : null
         const selected = store.device?.id === device.id
-        const title = `${displayName}\n${endpoint}`
+        const title = [
+          displayName,
+          endpoint,
+          connectionPresentation?.title,
+        ]
+          .filter(Boolean)
+          .join('\n')
         const screenshotStatus = !online
           ? t('offline')
           : screenshot?.status === 'loading'
@@ -79,8 +90,18 @@ export default observer(function DeviceCards() {
             key={device.id}
             type="button"
             aria-pressed={selected}
-            aria-busy={screenshot?.status === 'loading'}
-            aria-label={`${displayName}, ${endpoint}, ${screenshotStatus}`}
+            aria-busy={
+              screenshot?.status === 'loading' ||
+              connectionPresentation?.pending
+            }
+            aria-label={[
+              displayName,
+              endpoint,
+              connectionPresentation?.title,
+              screenshotStatus,
+            ]
+              .filter(Boolean)
+              .join(', ')}
             className={className(Style.deviceCard, {
               [Style.deviceCardSelected]: selected,
             })}
@@ -105,12 +126,28 @@ export default observer(function DeviceCards() {
             >
               <span
                 className={className(Style.statusTag, Style.cardStatusTag, {
-                  [Style.statusOnline]: online,
-                  [Style.statusOffline]: !online,
+                  [Style.statusOnline]: !connection && online,
+                  [Style.statusOffline]: !connection && !online,
+                  [Style.statusConnection]: Boolean(connection),
+                  [Style.statusWaiting]: connection?.phase === 'waiting',
+                  [Style.statusConnecting]: connection?.phase === 'connecting',
+                  [Style.statusVerifying]: connection?.phase === 'verifying',
+                  [Style.statusFailed]: connection?.phase === 'failed',
+                  [Style.statusVerificationFailed]:
+                    connection?.phase === 'verificationFailed',
                 })}
+                title={connectionPresentation?.title}
                 aria-hidden="true"
               >
-                {online ? t('online') : t('offline')}
+                {connectionPresentation?.pending &&
+                connection?.phase !== 'waiting' ? (
+                  <span
+                    className={Style.connectionSpinner}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {connectionPresentation?.label ||
+                  (online ? t('online') : t('offline'))}
               </span>
               {screenshot?.image ? (
                 <img
