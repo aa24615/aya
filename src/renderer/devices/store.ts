@@ -281,10 +281,12 @@ class Store extends BaseStore {
       const devices: IDevice[] = concat(this.devices, this.remoteDevices)
       device = find(devices, (d) => d.id === device) || null
     }
-    if (device && isRemoteDevice(device.id) && device.type === 'offline') {
-      const [ip, port] = device.id.split(':')
-      this.ip = ip
-      this.port = port
+    if (device) {
+      const endpoint = parseRemoteDeviceId(device.id)
+      if (endpoint) {
+        this.ip = endpoint.ip
+        this.port = String(endpoint.port)
+      }
     }
     this.device = device
     this.screenshot = device ? this.screenshots[device.id]?.image || null : null

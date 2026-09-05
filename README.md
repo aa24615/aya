@@ -77,16 +77,18 @@ Network devices use an `IP:port` ID, while USB and emulator devices keep their
 original ADB ID. Selecting a card shows the full screenshot in the resizable
 pane on the right.
 
-The **Reconnect and Refresh All Devices** button reconnects every saved network
-device, deduped by `IP:port`, and then reloads the latest status of network,
-USB, and emulator devices. One failed network connection does not stop the
-remaining devices. When saved network devices exist, AYA-Plus reports their
-online and offline counts after the refresh finishes. During a batch refresh,
-each card and table row shows whether that device is queued, connecting, being
-checked, or failed; the refresh button also spins and exposes the completed
-count. The single-device **Connect** button shows a spinner and is disabled
-until the final device status has been checked. Refreshing device status does
-not capture screenshots.
+Selecting any network device fills its IP and port into the connection fields;
+the **Reconnect Selected Device** toolbar button reconnects that device
+directly. The **Reconnect and Refresh All Devices** button reconnects every
+saved network device, deduped by `IP:port`, and then reloads the latest status
+of network, USB, and emulator devices. One failed network connection does not
+stop the remaining devices. When saved network devices exist, AYA-Plus reports
+their online and offline counts after the refresh finishes. During a batch
+refresh, each card and table row shows whether that device is queued,
+connecting, being checked, or failed; the refresh button also spins and exposes
+the completed count. The single-device **Connect** and **Reconnect Selected
+Device** buttons show a spinner and are disabled until the final device status
+has been checked. Refreshing device status does not capture screenshots.
 
 AYA-Plus persistently caches the last successful screenshot for every device
 and restores it after the app restarts. Wireless ADB screenshots are named by

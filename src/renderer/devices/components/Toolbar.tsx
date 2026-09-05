@@ -37,6 +37,16 @@ export default observer(function Toolbar() {
   const [deviceEditModalVisible, setDeviceEditModalVisible] = useState(false)
   const [devicesImporting, setDevicesImporting] = useState(false)
   const { device, remoteDevices } = store
+  const selectedEndpoint = device
+    ? parseRemoteDeviceId(device.id)
+    : null
+  const selectedConnection = device
+    ? store.getDeviceConnection(device.id)
+    : undefined
+  const selectedReconnecting =
+    store.deviceConnecting &&
+    (selectedConnection?.phase === 'connecting' ||
+      selectedConnection?.phase === 'verifying')
   const connectionsBusy =
     store.devicesRefreshing || store.deviceConnecting || devicesImporting
   const connectDisabled = connectionsBusy || isStrBlank(store.ip)
@@ -165,6 +175,34 @@ export default observer(function Toolbar() {
               } catch {
                 notify(t('commonErr'), { icon: 'error' })
               }
+            }
+          }}
+        />
+        <ToolbarIcon
+          icon="refresh"
+          className={selectedReconnecting ? Style.refreshing : undefined}
+          title={t(
+            selectedReconnecting
+              ? 'reconnectingSelectedDevice'
+              : 'reconnectSelectedDevice'
+          )}
+          disabled={
+            connectionsBusy ||
+            store.screenshotsRefreshing ||
+            !selectedEndpoint
+          }
+          onClick={async () => {
+            if (!selectedEndpoint) {
+              return
+            }
+            try {
+              await store.connectDevice(
+                selectedEndpoint.ip,
+                selectedEndpoint.port
+              )
+              notify(t('deviceReconnected'), { icon: 'success' })
+            } catch {
+              notify(t('connectErr'), { icon: 'error' })
             }
           }}
         />
